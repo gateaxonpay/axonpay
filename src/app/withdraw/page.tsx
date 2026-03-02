@@ -14,52 +14,69 @@ import {
     Loader2,
     RefreshCcw,
     CheckCircle2,
-    Menu
+    Key
 } from 'lucide-react';
 import { cn, formatBRL } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
-const PIX_TYPES = [
-    { id: 'CPF', label: 'CPF', placeholder: '123.456.789-00' },
-    { id: 'CNPJ', label: 'CNPJ', placeholder: '12.345.678/0001-00' },
-    { id: 'PHONE', label: 'Telefone', placeholder: '+55 11 99999-8888' },
-    { id: 'EMAIL', label: 'E-mail', placeholder: 'cliente@provedor.com' },
-    { id: 'EVP', label: 'Aleatória', placeholder: '00000000-0000-0000-0000-000000000000' },
-];
+interface SavedPixKey {
+    id: string;
+    pix_type: string;
+    pix_key: string;
+}
 
 export default function WithdrawPage() {
     const [balance, setBalance] = useState(0);
     const [pixType, setPixType] = useState('CPF');
     const [pixKey, setPixKey] = useState('');
     const [amount, setAmount] = useState('');
+    const [savedKeys, setSavedKeys] = useState<SavedPixKey[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [lockUntil, setLockUntil] = useState<string | null>(null);
     const router = useRouter();
 
-    const [lockUntil, setLockUntil] = useState<string | null>(null);
-
-    const fetchProfile = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            router.push('/auth');
-            return;
-        }
-
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        if (profile) {
-            setBalance(profile.balance);
-            if (profile.pix_key) setPixKey(profile.pix_key);
-            if (profile.pix_type) setPixType(profile.pix_type);
-            if (profile.withdraw_lock_until) setLockUntil(profile.withdraw_lock_until);
-        }
-        setIsLoading(false);
-    };
-
     useEffect(() => {
-        fetchProfile();
+        async function loadData() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                router.push('/auth');
+                return;
+            }
+
+            // Fetch balance & lock status
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('balance, withdraw_lock_until')
+                .eq('id', user.id)
+                .single();
+
+            if (profile) {
+                setBalance(profile.balance || 0);
+                setLockUntil(profile.withdraw_lock_until);
+            }
+
+            // Fetch saved keys
+            const { data: keys } = await supabase
+                .from('user_pix_keys')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (keys) {
+                setSavedKeys(keys);
+                if (keys.length > 0) {
+                    setPixKey(keys[0].pix_key);
+                    setPixType(keys[0].pix_type);
+                }
+            }
+
+            setIsLoading(false);
+        }
+        loadData();
     }, []);
 
     const requestedValue = parseFloat(amount) || 0;
@@ -78,7 +95,7 @@ export default function WithdrawPage() {
         }
 
         if (!pixKey) {
-            setError('Preencha a chave PIX.');
+            setError('Selecione ou preencha a chave PIX.');
             return;
         }
 
@@ -94,7 +111,7 @@ export default function WithdrawPage() {
                 body: JSON.stringify({
                     amount: requestedValue,
                     pix_type: pixType,
-                    pix_key: pixKey.replace(/[^\d+a-zA-Z-@.]/g, ''), // Basic cleanup
+                    pix_key: pixKey.replace(/[^\d+a-zA-Z-@.]/g, ''),
                     user_id: user?.id
                 })
             });
@@ -121,8 +138,6 @@ export default function WithdrawPage() {
             </div>
         );
     }
-
-    const activePlaceholder = PIX_TYPES.find(t => t.id === pixType)?.placeholder;
 
     return (
         <div className="max-w-4xl mx-auto pb-20">
@@ -186,36 +201,49 @@ export default function WithdrawPage() {
                                     </div>
 
                                     <div className="space-y-6 pt-4 border-t border-white/5">
-                                        <div className="flex gap-2 mb-2 overflow-x-auto pb-2 custom-scrollbar">
-                                            {PIX_TYPES.map(type => (
-                                                <button
-                                                    key={type.id}
-                                                    onClick={() => setPixType(type.id)}
-                                                    className={cn(
-                                                        "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border",
-                                                        pixType === type.id
-                                                            ? "bg-primary text-black border-primary shadow-lg shadow-yellow-500/20"
-                                                            : "bg-white/5 text-muted-foreground border-white/5 hover:bg-white/10"
-                                                    )}
-                                                >
-                                                    {type.label}
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        <div className="relative group">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 ml-2 mb-2 block">DADOS DA CHAVE {pixType}</label>
-                                            <div className="flex items-center bg-white/5 border border-white/10 rounded-[24px] focus-within:border-blue-500/50 transition-all">
-                                                <div className="pl-6 text-muted-foreground">
-                                                    <UserIcon size={20} />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={pixKey}
-                                                    onChange={(e) => setPixKey(e.target.value)}
-                                                    placeholder={activePlaceholder}
-                                                    className="w-full h-16 bg-transparent px-4 outline-none font-bold placeholder:text-white/10 tracking-widest"
-                                                />
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 ml-2">Escolha uma Chave Salva</label>
+                                            <div className="grid grid-cols-1 gap-3">
+                                                {savedKeys.length === 0 ? (
+                                                    <button
+                                                        onClick={() => router.push('/pix-key')}
+                                                        className="p-6 border-2 border-dashed border-white/5 rounded-3xl text-center hover:bg-white/5 transition-all group"
+                                                    >
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">Nenhuma chave cadastrada. Clique para cadastrar.</p>
+                                                    </button>
+                                                ) : (
+                                                    savedKeys.map((k) => (
+                                                        <button
+                                                            key={k.id}
+                                                            onClick={() => {
+                                                                setPixKey(k.pix_key);
+                                                                setPixType(k.pix_type);
+                                                            }}
+                                                            className={cn(
+                                                                "p-4 rounded-2xl border text-left transition-all flex items-center justify-between",
+                                                                pixKey === k.pix_key
+                                                                    ? "bg-primary/10 border-primary/40"
+                                                                    : "bg-white/5 border-white/5 hover:bg-white/10"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={cn(
+                                                                    "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                                                                    pixKey === k.pix_key ? "bg-primary text-black" : "bg-white/10 text-muted-foreground"
+                                                                )}>
+                                                                    <Key size={18} />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50">{k.pix_type}</p>
+                                                                    <p className="text-xs font-bold text-white font-mono">{k.pix_key}</p>
+                                                                </div>
+                                                            </div>
+                                                            {pixKey === k.pix_key && (
+                                                                <CheckCircle2 size={18} className="text-primary" />
+                                                            )}
+                                                        </button>
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
                                     </div>
