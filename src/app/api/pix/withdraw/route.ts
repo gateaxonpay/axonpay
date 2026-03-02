@@ -36,15 +36,14 @@ export async function POST(req: Request) {
         }
 
         const requestedNet = new Decimal(amount);
-        // Calculate internal amount needed to cover 8% fee so user gets 'amount' net.
-        // Formula: x * 0.92 = requestedNet => x = requestedNet / 0.92
-        const adjustedGross = requestedNet.div(0.92).toDecimalPlaces(2, Decimal.ROUND_UP);
-
-        if (new Decimal(profile.balance).lessThan(adjustedGross)) {
-            return NextResponse.json({ error: `Saldo insuficiente. Valor total com taxa (8%): ${adjustedGross.toNumber()}` }, { status: 400 });
+        // User only needs to have 'amount' in their balance.
+        if (new Decimal(profile.balance).lessThan(requestedNet)) {
+            return NextResponse.json({ error: "Saldo insuficiente para o resgate." }, { status: 400 });
         }
 
-        const withdrawGrossAmount = adjustedGross.toNumber();
+        // Calculate internal amount needed to cover 8% fee for MyCash API.
+        // Formula: x * 0.92 = requestedNet => x = requestedNet / 0.92
+        const withdrawGrossAmount = requestedNet.div(0.92).toDecimalPlaces(2, Decimal.ROUND_UP).toNumber();
         const withdrawNetAmount = requestedNet.toNumber();
 
         // 3. Call MyCash External API for Withdrawal (Send PIX) — gross amount
@@ -93,8 +92,8 @@ export async function POST(req: Request) {
             console.error("[WITHDRAW] Supabase Error recording withdraw:", txError.message);
         }
 
-        // 5. Deduct adjusted gross amount from user balance
-        const newBalance = new Decimal(profile.balance).minus(adjustedGross).toNumber();
+        // 5. Deduct ONLY the requested net amount from user balance
+        const newBalance = new Decimal(profile.balance).minus(requestedNet).toNumber();
         await supabase
             .from('profiles')
             .update({ balance: newBalance })
