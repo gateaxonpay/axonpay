@@ -7,7 +7,9 @@ export interface Profile {
     id: string;
     email: string | null;
     pix_key: string | null;
+    pix_type: string | null;
     balance: string | number | Decimal;
+    withdraw_lock_until: string | null;
     created_at: string;
 }
 

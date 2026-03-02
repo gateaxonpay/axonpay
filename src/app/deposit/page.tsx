@@ -15,45 +15,88 @@ import {
 import { cn, formatBRL } from '@/lib/utils';
 import Decimal from 'decimal.js';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+
+// Shape of what our API returns
+interface PixTransaction {
+    id: string | null;
+    external_id: string;
+    tx_id: string;
+    type: string;
+    amount_original: number;
+    amount_net: number;
+    description: string;
+    status: string;
+    is_final: boolean;
+    pix_copia_e_cola: string;
+    qr_code_url: string;
+    db_saved: boolean;
+}
 
 export default function DepositPage() {
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('Pagamento');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [transaction, setTransaction] = useState<any>(null);
+    const [transaction, setTransaction] = useState<PixTransaction | null>(null);
     const [copySuccess, setCopySuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
 
-    const netAmount = amount ? new Decimal(amount || 0).times(0.7).toDecimalPlaces(2).toString() : '0.00';
-    const taxAmount = amount ? new Decimal(amount || 0).times(0.3).toDecimalPlaces(2).toString() : '0.00';
+    // Real-time tax calculation
+    const parsedAmount = parseFloat(amount) || 0;
+    const netAmount = parsedAmount > 0
+        ? new Decimal(parsedAmount).times(0.7).toDecimalPlaces(2).toNumber()
+        : 0;
+    const taxAmount = parsedAmount > 0
+        ? new Decimal(parsedAmount).times(0.3).toDecimalPlaces(2).toNumber()
+        : 0;
 
-    // Polling logic
+    // Auth check
+    useEffect(() => {
+        async function checkAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                window.location.href = '/auth';
+            }
+        }
+        checkAuth();
+    }, []);
+
+    // Polling: check MyCash status every 60s until is_final
     useEffect(() => {
         let interval: NodeJS.Timeout;
 
         if (transaction && !transaction.is_final) {
             interval = setInterval(async () => {
-                const { data, error: pollError } = await supabase
-                    .from('transactions')
-                    .select('*')
-                    .eq('id', transaction.id)
-                    .single();
+                try {
+                    // Use external_id (MyCash ID) for status check
+                    const res = await fetch(`/api/pix/status/${transaction.external_id}`);
+                    const data = await res.json();
 
-                if (data) {
-                    setTransaction(data);
-                    if (data.is_final) {
-                        clearInterval(interval);
+                    if (res.ok && data.status) {
+                        setTransaction(prev => {
+                            if (!prev) return prev;
+                            return {
+                                ...prev,
+                                status: data.status,
+                                is_final: data.is_final,
+                            };
+                        });
                     }
+                } catch (e) {
+                    console.error('Polling error:', e);
                 }
-            }, 60000); // 60 seconds as per spec
+            }, 60000); // 60 seconds — rate-limit safe
         }
 
-        return () => clearInterval(interval);
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [transaction]);
 
     const handleGenerate = async () => {
-        if (!amount || parseFloat(amount) <= 0) {
-            setError('Por favor, insira um valor válido.');
+        if (!amount || parsedAmount < 20) {
+            setError('Valor mínimo para depósito é R$ 20,00');
             return;
         }
 
@@ -61,24 +104,31 @@ export default function DepositPage() {
         setError(null);
 
         try {
-            // Create transaction in Supabase
-            const { data, error: insertError } = await supabase
-                .from('transactions')
-                .insert({
-                    type: 'deposit',
-                    amount_original: parseFloat(amount),
-                    amount_net: parseFloat(netAmount),
-                    description: description || 'Pagamento',
-                    status: 'pending',
-                    is_final: false,
-                    pix_copia_e_cola: `00020101021126580014BR.GOV.BCB.PIX0136e0a0a0a0-0a0a-0a0a-0a0a-0a0a0a0a0a0a5204000053039865405${amount}5802BR5913AXONPAY LTDA6009SAO PAULO62070503***6304ABCD`,
-                    qr_code_url: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=AXONPAY-PIX-EXAMPLE',
-                })
-                .select()
-                .single();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                router.push('/auth');
+                return;
+            }
+            const userId = user.id;
 
-            if (insertError) throw insertError;
-            setTransaction(data);
+            const res = await fetch('/api/pix/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: parsedAmount,
+                    description: description || 'Depósito',
+                    user_id: userId,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Erro ao gerar PIX');
+            }
+
+            // data = { id, external_id, pix_copia_e_cola, qr_code_url, status, ... }
+            setTransaction(data as PixTransaction);
         } catch (err: any) {
             setError(err.message || 'Erro ao gerar o PIX. Tente novamente.');
         } finally {
@@ -86,11 +136,30 @@ export default function DepositPage() {
         }
     };
 
-    const copyToClipboard = () => {
+    const copyToClipboard = async () => {
         if (!transaction?.pix_copia_e_cola) return;
-        navigator.clipboard.writeText(transaction.pix_copia_e_cola);
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 2000);
+        try {
+            await navigator.clipboard.writeText(transaction.pix_copia_e_cola);
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+        } catch {
+            // Fallback
+            const input = document.createElement('textarea');
+            input.value = transaction.pix_copia_e_cola;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+        }
+    };
+
+    const resetTransaction = () => {
+        setTransaction(null);
+        setAmount('');
+        setDescription('Pagamento');
+        setError(null);
     };
 
     return (
@@ -106,16 +175,20 @@ export default function DepositPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
+                {/* Left: Form */}
                 <div className="lg:col-span-3 space-y-8">
-                    {/* Input Section */}
                     <div className="glass-card p-10 rounded-3xl space-y-8 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32" />
 
                         <div className="space-y-6">
                             <div className="space-y-3">
-                                <label className="text-sm font-bold uppercase tracking-widest text-[#EAB308]">Valor do Depósito (R$)</label>
+                                <label className="text-sm font-bold uppercase tracking-widest text-[#EAB308]">
+                                    Valor do Depósito (R$)
+                                </label>
                                 <div className="relative group">
-                                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">R$</span>
+                                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">
+                                        R$
+                                    </span>
                                     <input
                                         type="number"
                                         value={amount}
@@ -123,15 +196,20 @@ export default function DepositPage() {
                                             setAmount(e.target.value);
                                             setError(null);
                                         }}
-                                        placeholder="0,00"
+                                        min="20"
+                                        step="0.01"
+                                        placeholder="20,00"
                                         disabled={!!transaction}
                                         className="w-full h-20 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-6 text-3xl font-black outline-none focus:border-primary/50 focus:bg-white/10 transition-all disabled:opacity-50"
                                     />
                                 </div>
+                                <p className="text-xs text-muted-foreground ml-2">Mínimo: R$ 20,00</p>
                             </div>
 
                             <div className="space-y-3">
-                                <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Descrição (Opcional)</label>
+                                <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                                    Descrição (Opcional)
+                                </label>
                                 <input
                                     type="text"
                                     value={description}
@@ -150,7 +228,7 @@ export default function DepositPage() {
                             )}
                         </div>
 
-                        {/* Tax Real-time Info */}
+                        {/* Tax Engine — Real-time */}
                         <div className="p-6 bg-white/[0.03] rounded-2xl border border-white/5 space-y-4">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground flex items-center gap-2">
@@ -168,19 +246,19 @@ export default function DepositPage() {
                         {!transaction ? (
                             <button
                                 onClick={handleGenerate}
-                                disabled={isGenerating || !amount}
+                                disabled={isGenerating || !amount || parsedAmount < 20}
                                 className="w-full h-16 gold-gradient rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-30 disabled:hover:scale-100"
                             >
                                 {isGenerating ? (
-                                    <RefreshCcw className="animate-spin" />
+                                    <RefreshCcw className="animate-spin" size={24} />
                                 ) : (
                                     <QrCodeIcon size={24} />
                                 )}
-                                Gerar Cobrança PIX
+                                {isGenerating ? 'Gerando...' : 'Gerar Cobrança PIX'}
                             </button>
                         ) : (
                             <button
-                                onClick={() => setTransaction(null)}
+                                onClick={resetTransaction}
                                 className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl font-bold text-muted-foreground hover:bg-white/10 transition-all"
                             >
                                 Nova Transação
@@ -191,16 +269,18 @@ export default function DepositPage() {
                     <div className="p-6 border border-yellow-600/20 bg-yellow-600/5 rounded-2xl flex gap-4 items-start">
                         <AlertTriangle className="text-yellow-500 shrink-0" size={24} />
                         <p className="text-sm text-yellow-200/70 leading-relaxed">
-                            <strong>Atenção:</strong> O valor será creditado após a confirmação automática na rede PIX. O processo geralmente leva menos de 10 segundos. O QR Code expira em 30 minutos.
+                            <strong>Atenção:</strong> O valor será creditado após a confirmação automática na rede PIX.
+                            O processo geralmente leva menos de 10 segundos. O QR Code expira em 60 minutos.
                         </p>
                     </div>
                 </div>
 
-                {/* Status/Output Section */}
+                {/* Right: QR Code / Status */}
                 <div className="lg:col-span-2">
                     <AnimatePresence mode="wait">
                         {!transaction ? (
                             <motion.div
+                                key="placeholder"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
@@ -211,25 +291,36 @@ export default function DepositPage() {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-xl opacity-40">Aguardando Valor</h3>
-                                    <p className="text-sm text-muted-foreground opacity-30 max-w-[200px] mx-auto">Insira o valor e clique em gerar para ver o QR Code</p>
+                                    <p className="text-sm text-muted-foreground opacity-30 max-w-[200px] mx-auto">
+                                        Insira o valor e clique em gerar para ver o QR Code
+                                    </p>
                                 </div>
                             </motion.div>
                         ) : (
                             <motion.div
+                                key="qrcode"
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 className="glass-card p-10 rounded-3xl space-y-8 flex flex-col items-center"
                             >
+                                {/* Status Header */}
                                 <div className="text-center space-y-2">
-                                    <div className="flex items-center justify-center gap-2 text-yellow-500 mb-2">
-                                        <Clock size={16} className="animate-pulse" />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Aguardando Pagamento</span>
-                                    </div>
+                                    {transaction.status === 'completed' ? (
+                                        <div className="flex items-center justify-center gap-2 text-green-500 mb-2">
+                                            <CheckCircle2 size={16} />
+                                            <span className="text-xs font-bold uppercase tracking-widest">Pagamento Confirmado!</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-center gap-2 text-yellow-500 mb-2">
+                                            <Clock size={16} className="animate-pulse" />
+                                            <span className="text-xs font-bold uppercase tracking-widest">Aguardando Pagamento</span>
+                                        </div>
+                                    )}
                                     <h3 className="text-2xl font-black">{formatBRL(transaction.amount_original)}</h3>
                                 </div>
 
-                                {/* Simulated QR Code */}
-                                <div className="relative p-6 bg-white rounded-3xl shadow-2xl shadow-white/5 group">
+                                {/* QR Code */}
+                                <div className="relative p-6 bg-white rounded-3xl shadow-2xl shadow-white/5">
                                     <img
                                         src={transaction.qr_code_url}
                                         alt="PIX QR Code"
@@ -243,28 +334,49 @@ export default function DepositPage() {
                                     )}
                                 </div>
 
+                                {/* Copia e Cola */}
                                 <div className="w-full space-y-4">
                                     <div className="space-y-2">
-                                        <p className="text-xs font-bold uppercase text-muted-foreground ml-2">Copia e Cola</p>
+                                        <p className="text-xs font-bold uppercase text-muted-foreground ml-2">
+                                            PIX Copia e Cola
+                                        </p>
                                         <div className="relative">
-                                            <input
+                                            <textarea
                                                 readOnly
                                                 value={transaction.pix_copia_e_cola}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-4 pr-12 text-sm font-mono truncate"
+                                                rows={3}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-xs font-mono resize-none"
                                             />
                                             <button
                                                 onClick={copyToClipboard}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-lg transition-all"
+                                                className="absolute right-3 top-3 p-2 hover:bg-white/10 rounded-lg transition-all"
                                             >
-                                                {copySuccess ? <CheckCircle2 size={20} className="text-green-500" /> : <Copy size={20} className="text-muted-foreground" />}
+                                                {copySuccess ? (
+                                                    <CheckCircle2 size={20} className="text-green-500" />
+                                                ) : (
+                                                    <Copy size={20} className="text-muted-foreground" />
+                                                )}
                                             </button>
                                         </div>
+                                        {copySuccess && (
+                                            <p className="text-xs text-green-400 ml-2">Copiado!</p>
+                                        )}
                                     </div>
 
-                                    <div className="flex items-center justify-center gap-3 py-2 text-xs text-muted-foreground">
-                                        <RefreshCcw size={14} className="animate-spin" />
-                                        Sincronizando com Banco Central...
-                                    </div>
+                                    <button
+                                        onClick={copyToClipboard}
+                                        className="w-full py-4 bg-primary/10 border border-primary/20 rounded-xl text-primary text-sm font-bold uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Copy size={16} />
+                                        Copiar Código PIX
+                                    </button>
+
+                                    {transaction.status !== 'completed' && (
+                                        <div className="flex items-center justify-center gap-3 py-2 text-xs text-muted-foreground">
+                                            <RefreshCcw size={14} className="animate-spin" />
+                                            Verificando pagamento automaticamente...
+                                        </div>
+                                    )}
                                 </div>
                             </motion.div>
                         )}
