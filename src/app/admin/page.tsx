@@ -525,7 +525,7 @@ export default function AdminPage() {
                                                         </div>
                                                         <div>
                                                             <p className="text-sm font-black text-white group-hover:text-primary transition-colors uppercase tracking-tight italic">{user.full_name || 'Protocolo Ativo'}</p>
-                                                            <p className="text-[10px] font-mono text-muted-foreground uppercase opacity-40">{user.email}</p>
+                                                            <p className="text-[10px] font-mono text-muted-foreground uppercase opacity-40">USUÁRIO: {user.email?.split('@')[0]}</p>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -689,18 +689,18 @@ export default function AdminPage() {
                             <form className="space-y-10" onSubmit={async (e) => {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
-                                const email = formData.get('email') as string;
+                                const username = formData.get('username') as string;
                                 const password = formData.get('password') as string;
                                 const name = formData.get('name') as string;
 
-                                if (!email || !password || !name) return;
+                                if (!username || !password || !name) return;
 
                                 setIsCreatingUser(true);
                                 try {
                                     const res = await fetch('/api/admin/users/create', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ email, password, name }),
+                                        body: JSON.stringify({ username, password, name }),
                                     });
 
                                     const data = await res.json();
@@ -731,14 +731,14 @@ export default function AdminPage() {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Identificação Corporativa (E-mail)</label>
+                                    <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Login de Acesso (Usuário)</label>
                                     <input
-                                        name="email"
-                                        type="email"
+                                        name="username"
+                                        type="text"
                                         required
                                         disabled={isCreatingUser}
-                                        placeholder="ex: admin@axion.cc"
-                                        className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20"
+                                        placeholder="ex: renato.regis"
+                                        className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20 uppercase"
                                     />
                                 </div>
 

@@ -5,10 +5,10 @@ import { getServerSupabase } from '@/lib/supabase';
 // Requires SUPABASE_SERVICE_ROLE_KEY to work properly.
 export async function POST(req: Request) {
     try {
-        const { email, password, name } = await req.json();
+        const { username, password, name } = await req.json();
 
-        if (!email || !password || !name) {
-            return NextResponse.json({ error: "E-mail, senha e nome são obrigatórios" }, { status: 400 });
+        if (!username || !password || !name) {
+            return NextResponse.json({ error: "Usuário, senha e nome são obrigatórios" }, { status: 400 });
         }
 
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,8 +23,10 @@ export async function POST(req: Request) {
         const supabase = getServerSupabase();
 
         // 1. Create the user in Auth
+        const internalEmail = `${username.trim().toLowerCase()}@axon.pay`;
+
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email,
+            email: internalEmail,
             password,
             email_confirm: true,
             user_metadata: { full_name: name } // Salvando o nome no meta-dado do usuário

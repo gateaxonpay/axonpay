@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { Mail, Lock, LogIn, ShieldCheck, AlertCircle, RefreshCcw } from 'lucide-react';
+import { User as UserIcon, Lock, LogIn, ShieldCheck, AlertCircle, RefreshCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AuthPage() {
@@ -19,7 +19,13 @@ export default function AuthPage() {
         setError(null);
 
         try {
-            const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+            // Se o usuário não digitar o domínio, adiciona internamente para o Supabase Auth
+            const formattedEmail = email.includes('@') ? email : `${email.trim().toLowerCase()}@axon.pay`;
+
+            const { error: loginError } = await supabase.auth.signInWithPassword({
+                email: formattedEmail,
+                password
+            });
             if (loginError) throw loginError;
 
             router.push('/');
@@ -53,14 +59,14 @@ export default function AuthPage() {
                 <form onSubmit={handleAuth} className="space-y-6 relative">
                     <div className="space-y-4">
                         <div className="relative group">
-                            <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={20} />
+                            <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={20} />
                             <input
-                                type="email"
+                                type="text"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="usuário@AxionPay.cc"
-                                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-6 outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-bold placeholder:opacity-20"
+                                placeholder="Digite seu Usuário"
+                                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-6 outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-bold placeholder:opacity-20 uppercase"
                             />
                         </div>
 

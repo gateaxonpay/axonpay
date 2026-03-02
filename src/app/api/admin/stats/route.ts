@@ -41,10 +41,9 @@ export async function GET(req: Request) {
             const profile = profiles?.find(p => p.id === au.id);
             return {
                 id: au.id,
-                email: au.email || 'N/A',
+                email: au.email?.split('@')[0] || 'N/A', // Oculta o domínio no relatório
                 balance: profile?.balance || 0,
                 full_name: au.user_metadata?.full_name || profile?.full_name || au.email?.split('@')[0] || 'N/A'
-                // Any other profile data
             };
         });
 

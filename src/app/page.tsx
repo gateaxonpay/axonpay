@@ -81,7 +81,9 @@ export default function Dashboard() {
         return;
       }
       userId = user.id;
-      setEmail(user.email || '');
+      // Pega apenas a parte do usuário do "e-mail" interno
+      const username = user.email?.split('@')[0] || '';
+      setEmail(username);
       fetchData(user.id);
     }
 
@@ -133,7 +135,7 @@ export default function Dashboard() {
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
             </h1>
             <p className="text-muted-foreground text-[10px] md:text-sm uppercase tracking-widest font-bold flex flex-wrap items-center justify-center md:justify-start gap-2">
-              Usuário: <span className="text-white font-mono lowercase tracking-normal bg-white/5 px-2 py-0.5 rounded-lg break-all">{email}</span>
+              Usuário Registrado: <span className="text-primary font-black uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded-lg break-all italic">{email}</span>
             </p>
           </div>
         </div>
