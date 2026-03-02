@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { User as UserIcon, Lock, LogIn, ShieldCheck, AlertCircle, RefreshCcw } from 'lucide-react';
+import { User as UserIcon, Lock, LogIn, ShieldCheck, AlertCircle, RefreshCcw, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AuthPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
@@ -73,13 +74,20 @@ export default function AuthPage() {
                         <div className="relative group">
                             <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={20} />
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-6 outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-bold placeholder:opacity-20"
+                                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-16 outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-bold placeholder:opacity-20"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-all"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
                         </div>
                     </div>
 

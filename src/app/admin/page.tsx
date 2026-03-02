@@ -56,6 +56,7 @@ export default function AdminPage() {
     const [isCreatingUser, setIsCreatingUser] = useState(false);
     const [modalError, setModalError] = useState<string | null>(null);
     const [settingsStatus, setSettingsStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+    const [showUserPassword, setShowUserPassword] = useState(false);
 
     const correctPin = '171033';
 
@@ -744,14 +745,23 @@ export default function AdminPage() {
 
                                 <div className="space-y-4">
                                     <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Chave de Acesso (Senha)</label>
-                                    <input
-                                        name="password"
-                                        type="password"
-                                        required
-                                        disabled={isCreatingUser}
-                                        placeholder="••••••••"
-                                        className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-xl"
-                                    />
+                                    <div className="relative group">
+                                        <input
+                                            name="password"
+                                            type={showUserPassword ? "text" : "password"}
+                                            required
+                                            disabled={isCreatingUser}
+                                            placeholder="••••••••"
+                                            className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 pr-24 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-xl"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowUserPassword(!showUserPassword)}
+                                            className="absolute right-10 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-all"
+                                        >
+                                            {showUserPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="flex gap-6 pt-10">

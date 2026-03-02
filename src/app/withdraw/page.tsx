@@ -10,7 +10,6 @@ import {
     ArrowRight,
     User as UserIcon,
     AlertTriangle,
-    Send,
     Loader2,
     RefreshCcw,
     CheckCircle2,
@@ -357,21 +356,7 @@ export default function WithdrawPage() {
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-blue-600/10 to-indigo-600/10 border border-blue-500/20 p-8 md:p-10 rounded-[30px] md:rounded-[40px] space-y-6 group">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform shadow-2xl shadow-blue-500/10">
-                                <Send size={20} className="md:w-6 md:h-6" />
-                            </div>
-                            <div>
-                                <h4 className="font-black text-blue-400 uppercase tracking-widest text-sm md:text-base">Suporte Black</h4>
-                                <p className="text-[9px] md:text-[10px] text-blue-200/40 uppercase font-bold tracking-widest">Disponível 24/7</p>
-                            </div>
-                        </div>
-                        <p className="text-[10px] md:text-xs text-blue-200/50 leading-relaxed font-bold italic">Saques acima de R$ 50.000,00 contam com um gerente exclusivo de conta.</p>
-                        <button className="w-full h-14 bg-blue-600/20 border border-blue-600/30 rounded-2xl text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-600/30 transition-all">
-                            Prioridade VIP Support
-                        </button>
-                    </div>
+
                 </div>
             </div>
         </div>
