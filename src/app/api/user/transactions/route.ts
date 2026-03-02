@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
@@ -24,7 +27,14 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        return NextResponse.json({ transactions });
+        return new NextResponse(JSON.stringify({ transactions }), {
+            status: 200,
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            },
+        });
     } catch (err: any) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
