@@ -286,7 +286,7 @@ export default function Dashboard() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 md:px-10 py-6 font-bold text-xs md:text-sm hidden md:table-cell">{formatBRL(tx.amount_original as any)}</td>
+                  <td className="px-6 md:px-10 py-6 font-bold text-xs md:text-sm hidden md:table-cell">{formatBRL(tx.type === 'withdraw' ? tx.amount_net as any : tx.amount_original as any)}</td>
                   <td className="px-6 md:px-10 py-6 text-[#EAB308] font-black text-xs md:text-sm italic">{formatBRL(tx.amount_net as any)}</td>
                   <td className="px-6 md:px-10 py-6">
                     {tx.status === 'completed' && (
@@ -318,6 +318,22 @@ export default function Dashboard() {
                       <div className="flex items-center gap-2">
                         <Link href={`/deposit?txId=${tx.id || ''}`}>
                           <button className="bg-primary/10 text-primary hover:bg-primary border border-primary/20 hover:text-black px-3 py-1 rounded-lg text-[8px] font-black transition-all">
+                            ABRIR
+                          </button>
+                        </Link>
+                        <button
+                          onClick={() => handleManualCheck(tx.external_id || '')}
+                          className="bg-white/5 text-muted-foreground hover:bg-white/10 p-1.5 rounded-lg border border-white/10 transition-all"
+                          title="Verificar Status"
+                        >
+                          <RefreshCcw size={12} className={isLoading ? "animate-spin" : ""} />
+                        </button>
+                      </div>
+                    )}
+                    {(tx.status === 'processing' || tx.status === 'busy') && tx.type === 'withdraw' && (
+                      <div className="flex items-center gap-2">
+                        <Link href={`/withdraw?txId=${tx.id || ''}`}>
+                          <button className="bg-blue-500/10 text-blue-400 hover:bg-blue-500 border border-blue-500/20 hover:text-black px-3 py-1 rounded-lg text-[8px] font-black transition-all">
                             ABRIR
                           </button>
                         </Link>

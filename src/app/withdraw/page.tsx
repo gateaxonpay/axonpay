@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn, formatBRL } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface SavedPixKey {
     id: string;
@@ -53,6 +53,35 @@ export default function WithdrawPage() {
     const [isChecking, setIsChecking] = useState(false);
     const [penaltySeconds, setPenaltySeconds] = useState(0);
     const [penaltyMessage, setPenaltyMessage] = useState(false);
+    const searchParams = useSearchParams();
+
+    // Load existing withdraw transaction from URL query param
+    useEffect(() => {
+        const txId = searchParams.get('txId');
+        if (txId) {
+            async function loadTx() {
+                const { data: tx } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('id', txId)
+                    .single();
+
+                if (tx && tx.type === 'withdraw' && !tx.is_final) {
+                    setWithdrawTx({
+                        id: tx.id,
+                        external_id: tx.external_id,
+                        status: tx.status,
+                        is_final: tx.is_final,
+                        amount_original: tx.amount_original,
+                        amount_net: tx.amount_net,
+                        pix_copia_e_cola: tx.pix_copia_e_cola || '',
+                    });
+                    setAmount(tx.amount_net.toString());
+                }
+            }
+            loadTx();
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         async function loadData() {
