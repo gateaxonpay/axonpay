@@ -27,6 +27,8 @@ export interface Transaction {
     qr_code_url: string | null;
     created_at: string;
     updated_at: string;
+    user_email?: string;
+    user_name?: string;
 }
 
 export type Database = {

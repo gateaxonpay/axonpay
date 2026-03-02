@@ -5,13 +5,13 @@ export async function GET(req: Request) {
     try {
         const supabase = getServerSupabase();
 
-        // 0. Cancel expired pending transactions (> 60m)
-        const sixtyMinutesAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        // 0. Cancel expired pending transactions (> 30m)
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
         await supabase
             .from('transactions')
             .update({ status: 'cancelled', is_final: true })
             .eq('status', 'pending')
-            .lt('created_at', sixtyMinutesAgo);
+            .lt('created_at', thirtyMinutesAgo);
 
         // 1. Fetch all transactions (no RLS)
         const { data: txs, error: txsError } = await supabase
@@ -40,6 +40,7 @@ export async function GET(req: Request) {
                 id: au.id,
                 email: au.email || 'N/A',
                 balance: profile?.balance || 0,
+                full_name: profile?.full_name || au.email?.split('@')[0] || 'N/A'
                 // Any other profile data
             };
         });
@@ -69,6 +70,7 @@ export async function GET(req: Request) {
             return {
                 id: profile.id,
                 email: profile.email,
+                full_name: profile.full_name,
                 balance: profile.balance,
                 totalGenerated: userGenerated,
                 totalPaid: userPaid,
@@ -77,8 +79,18 @@ export async function GET(req: Request) {
             };
         }).sort((a, b) => b.totalGenerated - a.totalGenerated);
 
+        // Include user info in transactions for display
+        const enrichedTxs = txs.map(tx => {
+            const user = allUsers.find(u => u.id === tx.user_id);
+            return {
+                ...tx,
+                user_email: user?.email,
+                user_name: user?.full_name
+            };
+        });
+
         return NextResponse.json({
-            transactions: txs,
+            transactions: enrichedTxs,
             userMetrics,
             stats: {
                 totalPaid,

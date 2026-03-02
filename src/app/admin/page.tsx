@@ -29,6 +29,7 @@ import { Transaction } from '@/types';
 interface UserMetric {
     id: string;
     email: string;
+    full_name: string;
     balance: number;
     totalGenerated: number;
     totalPaid: number;
@@ -74,7 +75,11 @@ export default function AdminPage() {
 
             if (res.ok) {
                 setStats({ generated: data.stats.totalGenerated, paid: data.stats.totalPaid });
-                setRealTimeFeed(data.transactions || []);
+
+                // Filter out cancelled transactions and limit feed
+                const filteredFeed = (data.transactions || []).filter((tx: any) => tx.status !== 'cancelled');
+                setRealTimeFeed(filteredFeed);
+
                 setUserMetrics(data.userMetrics || []);
 
                 const withdraws = (data.transactions || []).filter((tx: Transaction) =>
@@ -136,14 +141,14 @@ export default function AdminPage() {
             const data = await res.json();
 
             if (res.ok) {
-                alert("Operador e dados excluídos com sucesso.");
-                fetchAdminData();
+                alert("Operador e dados financeiros excluídos com sucesso.");
+                await fetchAdminData();
             } else {
                 alert("ERRO ao excluir: " + (data.error || "Tente novamente mais tarde."));
-                setIsLoading(false);
             }
         } catch (err) {
             alert("Erro crítico ao tentar excluir o usuário.");
+        } finally {
             setIsLoading(false);
         }
     };
@@ -385,7 +390,11 @@ export default function AdminPage() {
                                                         {activity.type === 'deposit' ? <ArrowUpCircle size={26} /> : <ArrowDownCircle size={26} />}
                                                     </div>
                                                     <div>
-                                                        <h5 className="font-black text-base italic uppercase tracking-tighter">{activity.type === 'deposit' ? 'Aporte de Capital' : 'Resgate Protocolado'}</h5>
+                                                        <h5 className="font-black text-base italic uppercase tracking-tighter">
+                                                            {activity.type === 'deposit'
+                                                                ? `Depósito de ${activity.user_name || 'Operador'}`
+                                                                : 'Resgate Protocolado'}
+                                                        </h5>
                                                         <div className="flex items-center gap-4 mt-1.5">
                                                             <span className="text-[10px] font-black font-mono text-muted-foreground opacity-40 uppercase">{new Date(activity.created_at).toLocaleTimeString()}</span>
                                                             <div className={cn(
@@ -475,8 +484,8 @@ export default function AdminPage() {
                                                             <Users size={20} />
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-black text-white group-hover:text-primary transition-colors">{user.email}</p>
-                                                            <p className="text-[10px] font-mono text-muted-foreground uppercase opacity-40">ID: {user.id.slice(0, 12)}</p>
+                                                            <p className="text-sm font-black text-white group-hover:text-primary transition-colors uppercase tracking-tight italic">{user.full_name || 'Protocolo Ativo'}</p>
+                                                            <p className="text-[10px] font-mono text-muted-foreground uppercase opacity-40">{user.email}</p>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -611,15 +620,16 @@ export default function AdminPage() {
                                             e.preventDefault();
                                             const email = (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
                                             const password = (e.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
+                                            const name = (e.currentTarget.elements.namedItem('name') as HTMLInputElement).value;
 
-                                            if (!email || !password) return;
+                                            if (!email || !password || !name) return;
 
                                             setIsCreatingUser(true);
                                             try {
                                                 const res = await fetch('/api/admin/users/create', {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ email, password }),
+                                                    body: JSON.stringify({ email, password, name }),
                                                 });
 
                                                 const data = await res.json();
@@ -636,6 +646,18 @@ export default function AdminPage() {
                                                 setIsCreatingUser(false);
                                             }
                                         }}>
+                                            <div className="space-y-4">
+                                                <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Nome do Operador</label>
+                                                <input
+                                                    name="name"
+                                                    type="text"
+                                                    required
+                                                    disabled={isCreatingUser}
+                                                    placeholder="ex: Renato Régis"
+                                                    className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20"
+                                                />
+                                            </div>
+
                                             <div className="space-y-4">
                                                 <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Identificação Corporativa (E-mail)</label>
                                                 <input

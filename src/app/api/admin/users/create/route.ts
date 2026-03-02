@@ -5,10 +5,10 @@ import { getServerSupabase } from '@/lib/supabase';
 // Requires SUPABASE_SERVICE_ROLE_KEY to work properly.
 export async function POST(req: Request) {
     try {
-        const { email, password } = await req.json();
+        const { email, password, name } = await req.json();
 
-        if (!email || !password) {
-            return NextResponse.json({ error: "E-mail e senha são obrigatórios" }, { status: 400 });
+        if (!email || !password || !name) {
+            return NextResponse.json({ error: "E-mail, senha e nome são obrigatórios" }, { status: 400 });
         }
 
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,6 +39,7 @@ export async function POST(req: Request) {
             .upsert({
                 id: authData.user.id,
                 email: email,
+                full_name: name,
                 balance: 0,
                 pix_key: null,
                 pix_type: null
