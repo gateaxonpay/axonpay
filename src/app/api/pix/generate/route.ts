@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import Decimal from 'decimal.js';
+import { getMyCashApiKey } from '@/lib/settings';
 
 const MYCASH_API_URL = 'https://mycash.cc/api/v1/pix/generate';
-const MYCASH_API_KEY = process.env.MYCASH_API_KEY || '';
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { amount, description, user_id } = body;
+        const apiKey = await getMyCashApiKey();
 
         // 1. Validate minimum amount
         const parsedAmount = parseFloat(amount);
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
         const mycashRes = await fetch(MYCASH_API_URL, {
             method: 'POST',
             headers: {
-                'Authorization': MYCASH_API_KEY,
+                'Authorization': apiKey,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({

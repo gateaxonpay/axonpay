@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import Decimal from 'decimal.js';
+import { getMyCashApiKey } from '@/lib/settings';
 
 const MYCASH_WITHDRAW_URL = 'https://mycash.cc/api/v1/withdraw';
-const MYCASH_API_KEY = process.env.MYCASH_API_KEY || '';
 
 export async function POST(req: Request) {
     try {
         const { amount, pix_type, pix_key, user_id } = await req.json();
+        const apiKey = await getMyCashApiKey();
 
         if (!amount || parseFloat(amount) <= 0) {
             return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
         const mycashRes = await fetch(MYCASH_WITHDRAW_URL, {
             method: 'POST',
             headers: {
-                'Authorization': MYCASH_API_KEY,
+                'Authorization': apiKey,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({

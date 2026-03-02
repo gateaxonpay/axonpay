@@ -16,6 +16,8 @@ import {
     UserPlus,
     Users,
     ChevronRight,
+    Settings,
+    Database,
     Search,
     Wallet
 } from 'lucide-react';
@@ -39,13 +41,14 @@ export default function AdminPage() {
     const [error, setError] = useState(false);
     const [showPin, setShowPin] = useState(false);
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'users'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings'>('overview');
     const [stats, setStats] = useState({ generated: 0, paid: 0 });
     const [withdrawRequests, setWithdrawRequests] = useState<Transaction[]>([]);
     const [realTimeFeed, setRealTimeFeed] = useState<Transaction[]>([]);
     const [userMetrics, setUserMetrics] = useState<UserMetric[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [mycashApiKey, setMycashApiKey] = useState('');
 
     const correctPin = '171033';
 
@@ -83,9 +86,23 @@ export default function AdminPage() {
         }
     };
 
+    const fetchSettings = async () => {
+        try {
+            const res = await fetch('/api/admin/settings');
+            const data = await res.json();
+            if (res.ok && data.settings) {
+                const apiKeyItem = data.settings.find((s: any) => s.key === 'MYCASH_API_KEY');
+                if (apiKeyItem) setMycashApiKey(apiKeyItem.value);
+            }
+        } catch (err) {
+            console.error("Failed to fetch settings", err);
+        }
+    };
+
     useEffect(() => {
         if (!isAdmin) return;
         fetchAdminData();
+        fetchSettings();
         const interval = setInterval(fetchAdminData, 30000);
         return () => clearInterval(interval);
     }, [isAdmin]);
@@ -202,6 +219,15 @@ export default function AdminPage() {
                             )}
                         >
                             Usuários
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('settings')}
+                            className={cn(
+                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                activeTab === 'settings' ? "bg-white/10 text-white shadow-lg" : "text-muted-foreground hover:text-white"
+                            )}
+                        >
+                            Configurações
                         </button>
                     </div>
                     <button
@@ -398,7 +424,7 @@ export default function AdminPage() {
                             </div>
                         </div>
                     </motion.div>
-                ) : (
+                ) : activeTab === 'users' ? (
                     <motion.div
                         key="users"
                         initial={{ opacity: 0, y: 20 }}
@@ -492,6 +518,70 @@ export default function AdminPage() {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="settings"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="space-y-12"
+                    >
+                        <div className="flex items-center gap-5 px-6">
+                            <div className="p-4 bg-[#EAB308]/10 rounded-3xl border border-[#EAB308]/20 text-[#EAB308]">
+                                <Settings size={32} />
+                            </div>
+                            <div>
+                                <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">Configurações Base</h3>
+                                <p className="text-[10px] uppercase font-black tracking-widest text-[#EAB308]/40">Gerenciamento de Integrações e Gateway</p>
+                            </div>
+                        </div>
+
+                        <div className="glass-card p-12 rounded-[60px] border-white/5 space-y-10">
+                            <div className="space-y-8">
+                                <div className="flex items-center gap-4">
+                                    <Database className="text-[#EAB308]" size={24} />
+                                    <h4 className="text-xl font-black italic uppercase">Gateway MyCash</h4>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-4">API KEY (MYCASH.CC)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="password"
+                                            value={mycashApiKey}
+                                            onChange={(e) => setMycashApiKey(e.target.value)}
+                                            placeholder="sk_live_..."
+                                            className="w-full h-20 bg-white/[0.02] border border-white/10 rounded-[28px] px-10 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-mono text-sm text-[#EAB308]"
+                                        />
+                                    </div>
+                                    <p className="text-[9px] text-muted-foreground/40 italic ml-4">* Esta chave é usada para gerar todos os PIX da plataforma.</p>
+                                </div>
+
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const res = await fetch('/api/admin/settings', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ key: 'MYCASH_API_KEY', value: mycashApiKey })
+                                            });
+                                            if (res.ok) {
+                                                alert("CONFIGURAÇÕES SALVAS COM SUCESSO!");
+                                            } else {
+                                                const d = await res.json();
+                                                alert("ERRO: " + d.error);
+                                            }
+                                        } catch (err) {
+                                            alert("Falha ao salvar configurações.");
+                                        }
+                                    }}
+                                    className="h-20 w-80 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[28px] font-black uppercase tracking-[0.3em] transition-all text-xs italic"
+                                >
+                                    Salvar Alterações
+                                </button>
                             </div>
                         </div>
                     </motion.div>

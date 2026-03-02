@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
-
-const MYCASH_API_KEY = process.env.MYCASH_API_KEY || '';
+import { getMyCashApiKey } from '@/lib/settings';
 
 export async function GET(
     req: Request,
@@ -9,14 +8,43 @@ export async function GET(
 ) {
     try {
         const externalId = params.id;
+        const supabase = getServerSupabase();
+        const apiKey = await getMyCashApiKey();
 
-        // Call MyCash status API directly using the external_id
+        // 1. Check local DB for expiration
+        const { data: dbTx } = await supabase
+            .from('transactions')
+            .select('created_at, status')
+            .eq('external_id', String(externalId))
+            .single();
+
+        if (dbTx && dbTx.status === 'pending') {
+            const createdAt = new Date(dbTx.created_at).getTime();
+            const now = Date.now();
+            const diffMinutes = (now - createdAt) / (1000 * 60);
+
+            if (diffMinutes > 60) {
+                // Mark as cancelled locally
+                await supabase
+                    .from('transactions')
+                    .update({ status: 'cancelled', is_final: true })
+                    .eq('external_id', String(externalId));
+
+                return NextResponse.json({
+                    status: 'cancelled',
+                    is_final: true,
+                    message: "PIX expirado (Excedeu 60 minutos)"
+                });
+            }
+        }
+
+        // 2. Call MyCash status API directly using the external_id
         const mycashRes = await fetch(
             `https://mycash.cc/api/v1/pix/status/${externalId}`,
             {
                 method: 'GET',
                 headers: {
-                    'Authorization': MYCASH_API_KEY,
+                    'Authorization': apiKey,
                 },
             }
         );
@@ -33,7 +61,6 @@ export async function GET(
         // mycashData: { id: 450, status: "completed", is_final: true, amount: 50.00, type: "withdraw" }
 
         // Try to sync status back to Supabase
-        const supabase = getServerSupabase();
         const isFinal = mycashData.is_final || mycashData.status === 'completed' || mycashData.status === 'cancelled';
 
         await supabase
