@@ -11,6 +11,13 @@ export async function POST(req: Request) {
         const { amount, description, user_id } = body;
         const apiKey = await getMyCashApiKey();
 
+        if (!apiKey) {
+            return NextResponse.json(
+                { error: 'Chave API MyCash não configurada. Vá em /admin → Configurações e insira a API Key.' },
+                { status: 503 }
+            );
+        }
+
         // 1. Validate minimum amount
         const parsedAmount = parseFloat(amount);
         if (!amount || isNaN(parsedAmount) || parsedAmount < 20) {
