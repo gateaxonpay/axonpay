@@ -50,6 +50,8 @@ export default function AdminPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [mycashApiKey, setMycashApiKey] = useState('');
+    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+    const [isCreatingUser, setIsCreatingUser] = useState(false);
 
     const correctPin = '171033';
 
@@ -276,88 +278,43 @@ export default function AdminPage() {
                         exit={{ opacity: 0, y: -20 }}
                         className="space-y-12"
                     >
-                        {/* Protocol Insertion - Fixed */}
-                        <div className="glass-card p-12 rounded-[60px] border-white/5 shadow-inner relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 blur-[80px] group-hover:bg-primary/10 transition-colors" />
-                            <div className="flex items-center gap-6 mb-10">
-                                <div className="w-16 h-16 rounded-[25px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_10px_30px_rgba(234,179,8,0.1)]">
-                                    <UserPlus size={32} />
-                                </div>
-                                <div>
-                                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Inserção de Operadores</h2>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1 opacity-50">Gerar novas credenciais de acesso corporativo</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-10 items-end">
-                                <div className="space-y-4">
-                                    <label className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-4">E-mail Operacional</label>
-                                    <input
-                                        type="email"
-                                        placeholder="user@axionpay.cc"
-                                        id="new-user-email"
-                                        className="w-full h-20 bg-white/[0.02] border border-white/10 rounded-[28px] px-10 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold tracking-tight text-white text-lg"
-                                    />
-                                </div>
-                                <div className="space-y-4">
-                                    <label className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-4">Senha Codificada</label>
-                                    <input
-                                        type="password"
-                                        placeholder="••••••••"
-                                        id="new-user-password"
-                                        className="w-full h-20 bg-white/[0.02] border border-white/10 rounded-[28px] px-10 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-lg"
-                                    />
-                                </div>
-                                <button
-                                    onClick={async () => {
-                                        const emailEl = document.getElementById('new-user-email') as HTMLInputElement;
-                                        const passEl = document.getElementById('new-user-password') as HTMLInputElement;
-
-                                        if (!emailEl.value || !passEl.value) return alert("Preencha todos os campos!");
-
-                                        try {
-                                            const res = await fetch('/api/admin/users/create', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ email: emailEl.value, password: passEl.value })
-                                            });
-                                            const data = await res.json();
-                                            if (res.ok) {
-                                                alert("OPERADOR VALIDADO COM SUCESSO!");
-                                                emailEl.value = ''; passEl.value = '';
-                                                // Immediate fetch after creation
-                                                fetchAdminData();
-                                            } else {
-                                                alert("ERRO: " + data.error);
-                                            }
-                                        } catch (err) {
-                                            alert("Falha crítica no endpoint.");
-                                        }
-                                    }}
-                                    className="h-20 gold-gradient rounded-[28px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-95 transition-all text-sm italic shadow-2xl shadow-yellow-900/30"
-                                >
-                                    Validar <CheckCircle2 size={24} />
-                                </button>
-                            </div>
-                        </div>
-
                         {/* Top Metrics Row */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                             {[
+                                {
+                                    label: "Protocolar Operador",
+                                    value: userMetrics.length,
+                                    color: "yellow",
+                                    sub: "Gestão Ativa",
+                                    noFormat: true,
+                                    action: () => setIsUserModalOpen(true),
+                                    buttonLabel: "ADICIONAR",
+                                    icon: <UserPlus size={18} />
+                                },
                                 { label: "Liquidez Total", value: stats.generated, color: "blue", sub: "Fluxo de Entrada" },
                                 { label: "Volume Liquidado", value: stats.paid, color: "green", sub: "Finalizados com Sucesso" },
-                                { label: "Resgates Retidos", value: withdrawRequests.length, color: "yellow", sub: "Aguardando Aprovação", noFormat: true },
                                 { label: "Axion Profit (30%)", value: stats.paid * 0.3, color: "primary", sub: "Lucro Estimado" }
                             ].map((s, idx) => (
                                 <div key={idx} className={cn(
-                                    "glass-card p-10 rounded-[45px] border-white/5 shadow-2xl transition-all hover:translate-y-[-8px] cursor-default group border-b-8 shadow-inner",
-                                    idx === 0 ? "border-b-blue-500/30" : idx === 1 ? "border-b-green-500/30" : idx === 2 ? "border-b-yellow-500/30" : "border-b-[#EAB308]/30"
+                                    "glass-card p-10 rounded-[45px] border-white/5 shadow-2xl transition-all hover:translate-y-[-8px] cursor-default group border-b-8 shadow-inner flex flex-col justify-between",
+                                    idx === 0 ? "border-b-[#EAB308]/30" : idx === 1 ? "border-b-blue-500/30" : idx === 2 ? "border-b-green-500/30" : "border-b-[#EAB308]/30"
                                 )}>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 mb-5 group-hover:text-white transition-colors">{s.label}</p>
-                                    <h3 className="text-4xl font-black italic tracking-tighter">
-                                        {s.noFormat ? s.value : formatBRL(s.value)}
-                                    </h3>
-                                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#EAB308]/60 mt-4 italic">{s.sub}</p>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 mb-5 group-hover:text-white transition-colors">{s.label}</p>
+                                        <h3 className="text-4xl font-black italic tracking-tighter">
+                                            {s.noFormat ? s.value : formatBRL(s.value)}
+                                        </h3>
+                                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#EAB308]/60 mt-4 italic">{s.sub}</p>
+                                    </div>
+
+                                    {(s as any).action && (
+                                        <button
+                                            onClick={(s as any).action}
+                                            className="mt-8 w-full h-14 bg-white/5 hover:bg-primary hover:text-black border border-white/10 rounded-2xl flex items-center justify-center gap-4 transition-all font-black uppercase tracking-[0.3em] text-[10px]"
+                                        >
+                                            {(s as any).buttonLabel} {(s as any).icon}
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -622,6 +579,109 @@ export default function AdminPage() {
                                 </button>
                             </div>
                         </div>
+                        {/* Create User Modal */}
+                        <AnimatePresence>
+                            {isUserModalOpen && (
+                                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        onClick={() => !isCreatingUser && setIsUserModalOpen(false)}
+                                        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+                                    />
+
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                                        className="glass-card w-full max-w-xl p-12 rounded-[60px] border-white/5 shadow-2xl relative z-10"
+                                    >
+                                        <div className="flex items-center gap-6 mb-12">
+                                            <div className="w-20 h-20 rounded-[30px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl shadow-primary/10">
+                                                <UserPlus size={40} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Novo Protocolo</h2>
+                                                <p className="text-[11px] text-muted-foreground uppercase font-black tracking-[0.3em] mt-1 opacity-50">Inserção de Operador na Rede</p>
+                                            </div>
+                                        </div>
+
+                                        <form className="space-y-10" onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const email = (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
+                                            const password = (e.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
+
+                                            if (!email || !password) return;
+
+                                            setIsCreatingUser(true);
+                                            try {
+                                                const res = await fetch('/api/admin/users/create', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ email, password }),
+                                                });
+
+                                                const data = await res.json();
+                                                if (res.ok) {
+                                                    setIsUserModalOpen(false);
+                                                    setActiveTab('users');
+                                                    await fetchAdminData();
+                                                } else {
+                                                    alert("FALHA: " + data.error);
+                                                }
+                                            } catch (err) {
+                                                alert("ERRO DE CONEXÃO");
+                                            } finally {
+                                                setIsCreatingUser(false);
+                                            }
+                                        }}>
+                                            <div className="space-y-4">
+                                                <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Identificação Corporativa (E-mail)</label>
+                                                <input
+                                                    name="email"
+                                                    type="email"
+                                                    required
+                                                    disabled={isCreatingUser}
+                                                    placeholder="ex: admin@axion.cc"
+                                                    className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Chave de Acesso (Senha)</label>
+                                                <input
+                                                    name="password"
+                                                    type="password"
+                                                    required
+                                                    disabled={isCreatingUser}
+                                                    placeholder="••••••••"
+                                                    className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-xl"
+                                                />
+                                            </div>
+
+                                            <div className="flex gap-6 pt-10">
+                                                <button
+                                                    type="button"
+                                                    disabled={isCreatingUser}
+                                                    onClick={() => setIsUserModalOpen(false)}
+                                                    className="flex-1 h-24 bg-white/5 border border-white/10 rounded-[35px] font-black uppercase tracking-[0.3em] transition-all hover:bg-white/10 text-[10px]"
+                                                >
+                                                    Abortar
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={isCreatingUser}
+                                                    className="flex-[2] h-24 gold-gradient rounded-[35px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-6 hover:scale-[1.02] active:scale-95 transition-all text-base italic shadow-2xl shadow-yellow-900/30 disabled:opacity-50 disabled:grayscale"
+                                                >
+                                                    {isCreatingUser ? "Sincronizando..." : "Validar Operador"} <CheckCircle2 size={30} />
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </motion.div>
+                                </div>
+                            )}
+                        </AnimatePresence>
                     </motion.div>
                 )}
             </AnimatePresence>
