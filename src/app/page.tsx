@@ -29,7 +29,57 @@ export default function Dashboard() {
   const [email, setEmail] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
   const router = useRouter();
+
+  // Cooldown timer logic
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setInterval(() => setCooldown(prev => prev - 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [cooldown]);
+
+  const handleSyncBalance = async () => {
+    if (cooldown > 0 || isSyncing) return;
+
+    setIsSyncing(true);
+    setSyncError(null);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const res = await fetch('/api/user/sync-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      const data = await res.json();
+
+      if (res.status === 429) {
+        // Se for rate limit, extrair segundos da mensagem ou setar padrao
+        setCooldown(600);
+        throw new Error(data.error);
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao sincronizar saldo');
+      }
+
+      setBalance(data.balance);
+      setCooldown(600); // 10 minutes
+    } catch (err: any) {
+      setSyncError(err.message);
+      // Auto-clear error after 5s
+      setTimeout(() => setSyncError(null), 5000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     async function checkUser() {
@@ -132,9 +182,35 @@ export default function Dashboard() {
                 <p className="text-[10px] uppercase font-black tracking-[0.4em] text-muted-foreground italic flex items-center gap-2">
                   <ShieldCheck size={12} className="text-primary" /> Liquidez Protocolar AXION
                 </p>
-                <h2 className="text-6xl font-black text-white tracking-tighter italic">
-                  {formatBRL(balance)}
-                </h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-6xl font-black text-white tracking-tighter italic">
+                    {formatBRL(balance)}
+                  </h2>
+                  <button
+                    onClick={handleSyncBalance}
+                    disabled={isSyncing || cooldown > 0}
+                    className={cn(
+                      "p-3 rounded-2xl border transition-all flex items-center gap-2 group/sync relative",
+                      cooldown > 0
+                        ? "bg-white/5 border-white/5 text-muted-foreground/30"
+                        : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 active:scale-95"
+                    )}
+                  >
+                    <RefreshCcw size={20} className={cn(isSyncing && "animate-spin")} />
+                    {cooldown > 0 && (
+                      <span className="text-[10px] font-mono font-bold tracking-tighter">
+                        {Math.floor(cooldown / 60)}:{String(cooldown % 60).padStart(2, '0')}
+                      </span>
+                    )}
+
+                    {/* Tooltip-like error */}
+                    {syncError && (
+                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] px-2 py-1 rounded whitespace-nowrap font-black uppercase tracking-widest animate-bounce">
+                        {syncError}
+                      </div>
+                    )}
+                  </button>
+                </div>
                 <div className="flex items-center gap-2 py-1 px-3 bg-white/5 rounded-full w-fit border border-white/5">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                   <span className="text-[9px] font-black uppercase tracking-widest text-green-500 italic">Disponível para Resgate</span>
