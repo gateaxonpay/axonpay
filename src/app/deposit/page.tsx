@@ -153,7 +153,12 @@ export default function DepositPage() {
 
         const confirmed = await checkPaymentStatus();
 
-        if (!confirmed) {
+        if (confirmed) {
+            // Success! The API already handled the balance update
+            setTimeout(() => {
+                router.push('/');
+            }, 2000);
+        } else {
             // Payment not confirmed — apply 1 min penalty
             setPenaltySeconds(60);
             setPenaltyMessage(true);
@@ -557,18 +562,19 @@ export default function DepositPage() {
                                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">ID Protocolo</th>
                                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Status</th>
                                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 text-right">Valor Líquido</th>
+                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 text-right">Ação</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {isLoadingTxs ? (
                                     <tr>
-                                        <td colSpan={3} className="px-8 py-10 text-center animate-pulse">
+                                        <td colSpan={4} className="px-8 py-10 text-center animate-pulse">
                                             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">Sincronizando...</p>
                                         </td>
                                     </tr>
                                 ) : recentTxs.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="px-8 py-10 text-center">
+                                        <td colSpan={4} className="px-8 py-10 text-center">
                                             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">Nenhum protocolo detectado.</p>
                                         </td>
                                     </tr>
@@ -586,6 +592,30 @@ export default function DepositPage() {
                                                 )}
                                             </td>
                                             <td className="px-8 py-5 text-right font-black italic text-sm text-white">{formatBRL(tx.amount_net)}</td>
+                                            <td className="px-8 py-5 text-right">
+                                                {tx.status === 'pending' && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                const res = await fetch(`/api/pix/status/${tx.external_id}`);
+                                                                const data = await res.json();
+                                                                if (data.status === 'completed') {
+                                                                    alert('Pagamento confirmado e saldo atualizado!');
+                                                                    const { data: { user } } = await supabase.auth.getUser();
+                                                                    if (user) fetchRecentTxs(user.id);
+                                                                } else {
+                                                                    alert('Pagamento ainda não detectado.');
+                                                                }
+                                                            } catch (e) {
+                                                                alert('Erro ao verificar status.');
+                                                            }
+                                                        }}
+                                                        className="p-2 bg-primary/10 hover:bg-primary/20 rounded-lg text-primary text-[8px] font-black uppercase tracking-widest transition-all"
+                                                    >
+                                                        Verificar
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))
                                 )}

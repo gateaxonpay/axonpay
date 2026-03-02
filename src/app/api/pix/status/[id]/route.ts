@@ -59,51 +59,65 @@ export async function GET(
         }
 
         // mycashData: { id: 450, status: "completed", is_final: true, amount: 50.00, type: "withdraw" }
+        const currentMyCashStatus = mycashData.status; // from remote MyCash API
+        const isFinal = mycashData.is_final || currentMyCashStatus === 'completed' || currentMyCashStatus === 'cancelled';
 
-        // Try to sync status back to Supabase
-        const isFinal = mycashData.is_final || mycashData.status === 'completed' || mycashData.status === 'cancelled';
-
-        await supabase
+        // 3. Get full local transaction data to check "credited" status
+        const { data: tx } = await supabase
             .from('transactions')
-            .update({
-                status: mycashData.status,
-                is_final: isFinal,
-            })
-            .eq('external_id', String(externalId));
+            .select('*')
+            .eq('external_id', String(externalId))
+            .single();
 
-        // If completed, credit user balance AND set withdrawal lock
-        if (mycashData.status === 'completed') {
-            const { data: tx } = await supabase
-                .from('transactions')
-                .select('user_id, amount_net, type, status')
-                .eq('external_id', String(externalId))
-                .single();
+        if (tx) {
+            // Update local status if it changed
+            if (tx.status !== currentMyCashStatus) {
+                await supabase
+                    .from('transactions')
+                    .update({
+                        status: currentMyCashStatus,
+                        is_final: isFinal,
+                    })
+                    .eq('external_id', String(externalId));
+            }
 
-            // Only credit if it's a deposit AND wasn't already completed (prevent double credit)
-            if (tx && tx.user_id && tx.type === 'deposit' && dbTx?.status !== 'completed') {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('balance')
-                    .eq('id', tx.user_id)
-                    .single();
-
-                if (profile) {
-                    const newBalance = Number(profile.balance) + Number(tx.amount_net);
-                    const lockUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-                    await supabase
+            // CRITICAL: Credit balance ONLY IF it's a deposit AND it just reached 'completed' status AND IT WASN'T CREDITED ALREADY
+            if (currentMyCashStatus === 'completed' && tx.type === 'deposit' && !tx.credited) {
+                if (tx.user_id) {
+                    // Fetch profile to update balance (or use atomic update if we had an RPC)
+                    const { data: profile } = await supabase
                         .from('profiles')
-                        .update({
-                            balance: newBalance,
-                            withdraw_lock_until: lockUntil
-                        })
-                        .eq('id', tx.user_id);
+                        .select('balance')
+                        .eq('id', tx.user_id)
+                        .single();
+
+                    if (profile) {
+                        const newBalance = Number(profile.balance) + Number(tx.amount_net);
+                        const lockUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+                        // Use a simple update for now, but mark 'credited' to prevent double-spending
+                        const { error: balanceError } = await supabase
+                            .from('profiles')
+                            .update({
+                                balance: newBalance,
+                                withdraw_lock_until: lockUntil
+                            })
+                            .eq('id', tx.user_id);
+
+                        if (!balanceError) {
+                            // Mark transaction as credited ONLY ON SUCCESSFUL update
+                            await supabase
+                                .from('transactions')
+                                .update({ credited: true })
+                                .eq('external_id', String(externalId));
+                        }
+                    }
                 }
             }
         }
 
         return NextResponse.json({
-            status: mycashData.status,
+            status: currentMyCashStatus,
             is_final: isFinal,
             amount: mycashData.amount,
             type: mycashData.type,
