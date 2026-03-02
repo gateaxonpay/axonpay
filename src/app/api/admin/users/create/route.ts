@@ -32,17 +32,14 @@ export async function POST(req: Request) {
         if (authError) throw authError;
 
         // 2. Create the associated profile
-        // Usually handled by a SQL trigger "on_auth_user_created", 
-        // but we ensure it here if that trigger doesn't exist.
+        // Only include columns we are sure exist: id, full_name, balance.
+        // E-mail is already stored in Auth metadata/table.
         const { error: profileError } = await supabase
             .from('profiles')
             .upsert({
                 id: authData.user.id,
-                email: email,
                 full_name: name,
-                balance: 0,
-                pix_key: null,
-                pix_type: null
+                balance: 0
             }, { onConflict: 'id' });
 
         if (profileError) {
