@@ -13,42 +13,38 @@ export async function DELETE(req: Request) {
 
         const supabase = getServerSupabase();
 
-        // 1. Delete transactions (financial data)
-        const { error: txError } = await supabase
-            .from('transactions')
-            .delete()
-            .eq('user_id', userId);
+        // 0. Check for balance before deleting
+        const { data: profile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('balance')
+            .eq('id', userId)
+            .single();
 
-        if (txError) {
-            console.error("Error deleting transactions:", txError);
-            // We continue anyway to try and delete the user
+        if (fetchError && fetchError.code !== 'PGRST116') {
+            return NextResponse.json({ error: "Erro ao consultar saldo do operador" }, { status: 500 });
         }
+
+        if (profile && Number(profile.balance) > 0) {
+            return NextResponse.json({
+                error: `Impossível excluir: este operador possui saldo de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(profile.balance)}. O saldo deve ser sacado ou zerado antes da exclusão.`
+            }, { status: 400 });
+        }
+
+        // 1. Delete transactions (financial data)
+        await supabase.from('transactions').delete().eq('user_id', userId);
 
         // 2. Delete user PIX keys
-        const { error: keysError } = await supabase
-            .from('user_pix_keys')
-            .delete()
-            .eq('user_id', userId);
-
-        if (keysError) {
-            console.error("Error deleting PIX keys:", keysError);
-        }
+        await supabase.from('user_pix_keys').delete().eq('user_id', userId);
 
         // 3. Delete profile
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .delete()
-            .eq('id', userId);
+        await supabase.from('profiles').delete().eq('id', userId);
 
-        if (profileError) {
-            console.error("Error deleting profile:", profileError);
-        }
-
-        // 4. Delete from Auth (the most critical part, requires admin privileges)
+        // 4. Delete from Auth (requires admin privileges)
         const { error: authError } = await supabase.auth.admin.deleteUser(userId);
 
         if (authError) {
-            throw authError;
+            console.error("Auth Deletion Error:", authError);
+            return NextResponse.json({ error: "Erro ao excluir conta de acesso (Auth). Verifique as permissões de Admin." }, { status: 500 });
         }
 
         return NextResponse.json({
