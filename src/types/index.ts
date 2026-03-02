@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 
 export type TransactionType = 'deposit' | 'withdraw';
-export type TransactionStatus = 'pending' | 'processing' | 'completed' | 'cancelled';
+export type TransactionStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'busy' | 'failed';
 
 export interface Profile {
     id: string;

@@ -38,9 +38,9 @@ export default function Dashboard() {
         .from('transactions')
         .select('external_id, type, status')
         .eq('user_id', userId)
-        .in('status', ['pending', 'processing'])
+        .in('status', ['pending', 'processing', 'busy'])
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (pendingTxs && pendingTxs.length > 0) {
         console.log(`[DASHBOARD] Syncing ${pendingTxs.length} protocols...`);
@@ -297,12 +297,12 @@ export default function Dashboard() {
                         PEND
                       </span>
                     )}
-                    {tx.status === 'processing' && (
+                    {(tx.status === 'processing' || tx.status === 'busy') && (
                       <span className="bg-blue-500/10 text-blue-400 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[8px] font-black border border-blue-500/20 italic tracking-widest animate-pulse uppercase leading-tight text-center flex items-center">
                         Saque em Andamento
                       </span>
                     )}
-                    {tx.status === 'cancelled' && (
+                    {(tx.status === 'cancelled' || tx.status === 'failed') && (
                       <span className="bg-red-500/10 text-red-500 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[10px] font-black border border-red-500/20 italic tracking-widest uppercase">
                         FAIL
                       </span>
