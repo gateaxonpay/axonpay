@@ -19,7 +19,8 @@ import {
     Settings,
     Database,
     Search,
-    Wallet
+    Wallet,
+    Trash2
 } from 'lucide-react';
 import { cn, formatBRL } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -115,6 +116,33 @@ export default function AdminPage() {
 
         if (!updateError) {
             fetchAdminData();
+        }
+    };
+
+    const handleDeleteUser = async (userId: string, email: string) => {
+        if (!confirm(`TEM CERTEZA? Isso excluirá o operador ${email} e TODOS os dados financeiros associados (transações, histórico, saldo). Esta ação não pode ser desfeita.`)) {
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const res = await fetch('/api/admin/users/delete', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                alert("Operador e dados excluídos com sucesso.");
+                fetchAdminData();
+            } else {
+                alert("ERRO ao excluir: " + (data.error || "Tente novamente mais tarde."));
+                setIsLoading(false);
+            }
+        } catch (err) {
+            alert("Erro crítico ao tentar excluir o usuário.");
+            setIsLoading(false);
         }
     };
 
@@ -460,6 +488,7 @@ export default function AdminPage() {
                                             <th className="p-8 text-[11px] font-black uppercase tracking-widest text-green-400 text-center">Depósitos Pagos</th>
                                             <th className="p-8 text-[11px] font-black uppercase tracking-widest text-red-400 text-center">Saques Finalizados</th>
                                             <th className="p-8 text-[11px] font-black uppercase tracking-widest text-white text-right">Saldo Ativo</th>
+                                            <th className="p-8 text-[11px] font-black uppercase tracking-widest text-muted-foreground text-center">Ação</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
@@ -474,7 +503,7 @@ export default function AdminPage() {
                                             </tr>
                                         ) : filteredUsers.length === 0 ? (
                                             <tr>
-                                                <td colSpan={6} className="p-20 text-center">
+                                                <td colSpan={7} className="p-20 text-center">
                                                     <div className="flex flex-col items-center gap-4 opacity-30">
                                                         <Search size={48} />
                                                         <p className="text-[10px] uppercase font-black tracking-widest italic">Nenhum operador localizado no cluster</p>
@@ -513,6 +542,15 @@ export default function AdminPage() {
                                                             <span className="text-lg font-black italic text-white">{formatBRL(user.balance)}</span>
                                                         </div>
                                                     </div>
+                                                </td>
+                                                <td className="p-8 text-center">
+                                                    <button
+                                                        onClick={() => handleDeleteUser(user.id, user.email)}
+                                                        className="p-3 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-black rounded-xl border border-red-500/20 transition-all active:scale-95 group-hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                                                        title="Excluir Operador e seus dados financeiros"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))}
