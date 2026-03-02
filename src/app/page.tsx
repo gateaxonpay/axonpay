@@ -43,26 +43,36 @@ export default function Dashboard() {
     }
 
     async function fetchData(userId: string) {
-      // Fetch balance from profiles
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      try {
+        // Fetch balance from profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-      if (profile) setBalance(profile.balance);
+        if (profile) setBalance(profile.balance);
 
-      // Fetch recent transactions for this user only
-      const { data: txs } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        // Fetch recent transactions for this user
+        const { data: txs, error: txError } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-      if (txs) setTransactions(txs as Transaction[]);
+        if (txError) {
+          console.error('Error fetching transactions:', txError.message);
+        }
 
-      setIsLoading(false);
+        if (txs) {
+          setTransactions(txs as Transaction[]);
+        }
+      } catch (err) {
+        console.error('Data fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     checkUser();
