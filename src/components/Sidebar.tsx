@@ -9,6 +9,7 @@ import {
     ShieldCheck,
     LogOut,
     Wallet,
+    Key,
     User as UserIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
     { label: 'Dash Protocol', icon: LayoutDashboard, href: '/' },
     { label: 'Aportar PIX', icon: ArrowUpCircle, href: '/deposit' },
     { label: 'Resgatar PIX', icon: ArrowDownCircle, href: '/withdraw' },
+    { label: 'Chave PIX', icon: Key, href: '/pix-key' },
 ];
 
 export function Sidebar() {
@@ -49,7 +51,7 @@ export function Sidebar() {
                     <Wallet size={24} className="text-black" />
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-2xl font-black tracking-tighter uppercase italic text-white">AxonPay</span>
+                    <span className="text-2xl font-black tracking-tighter uppercase italic text-white">AxionPay</span>
                     <span className="text-[8px] font-black tracking-[0.4em] uppercase text-[#EAB308] opacity-50">Secure Gateway</span>
                 </div>
             </div>
@@ -99,7 +101,7 @@ export function Sidebar() {
             </div>
 
             <div className="mt-8 text-center">
-                <p className="text-[8px] font-black uppercase tracking-[0.5em] text-white opacity-10">Axon Protocol v3.0</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.5em] text-white opacity-10">Axion Protocol v3.0</p>
             </div>
         </aside>
     );

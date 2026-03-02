@@ -94,7 +94,7 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tighter uppercase italic text-white flex items-center gap-3">
-              Axon Dashboard
+              Axion Dashboard
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
             </h1>
             <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold flex items-center gap-2">
@@ -126,7 +126,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start">
               <div className="space-y-2">
                 <p className="text-[10px] uppercase font-black tracking-[0.4em] text-muted-foreground italic flex items-center gap-2">
-                  <ShieldCheck size={12} className="text-primary" /> Liquidez Protocolar AXON
+                  <ShieldCheck size={12} className="text-primary" /> Liquidez Protocolar AXION
                 </p>
                 <h2 className="text-6xl font-black text-white tracking-tighter italic">
                   {formatBRL(balance)}

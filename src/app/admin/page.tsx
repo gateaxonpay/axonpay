@@ -137,7 +137,7 @@ export default function AdminPage() {
                         <ShieldCheck size={56} className="relative z-10" />
                     </div>
                     <div className="text-center space-y-3">
-                        <h1 className="text-4xl font-black tracking-tighter italic text-white">Axon Gatekeeper</h1>
+                        <h1 className="text-4xl font-black tracking-tighter italic text-white">AxionPay</h1>
                         <p className="text-[10px] text-[#EAB308] font-black uppercase tracking-[0.5em] opacity-80">Protocolo de Segurança Nível 5</p>
                     </div>
                     <form onSubmit={handleLogin} className="w-full space-y-8">
@@ -190,7 +190,7 @@ export default function AdminPage() {
                     </div>
                     <div>
                         <h1 className="text-4xl font-black tracking-tighter uppercase italic text-white flex items-center gap-4">
-                            Axon Central
+                            Axion Central
                             <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]" />
                         </h1>
                         <div className="flex items-center gap-4 mt-1">
@@ -266,7 +266,7 @@ export default function AdminPage() {
                                     <label className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-4">E-mail Operacional</label>
                                     <input
                                         type="email"
-                                        placeholder="user@axonpay.cc"
+                                        placeholder="user@axionpay.cc"
                                         id="new-user-email"
                                         className="w-full h-20 bg-white/[0.02] border border-white/10 rounded-[28px] px-10 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold tracking-tight text-white text-lg"
                                     />
@@ -319,7 +319,7 @@ export default function AdminPage() {
                                 { label: "Liquidez Total", value: stats.generated, color: "blue", sub: "Fluxo de Entrada" },
                                 { label: "Volume Liquidado", value: stats.paid, color: "green", sub: "Finalizados com Sucesso" },
                                 { label: "Resgates Retidos", value: withdrawRequests.length, color: "yellow", sub: "Aguardando Aprovação", noFormat: true },
-                                { label: "Axon Profit (30%)", value: stats.paid * 0.3, color: "primary", sub: "Lucro Estimado" }
+                                { label: "Axion Profit (30%)", value: stats.paid * 0.3, color: "primary", sub: "Lucro Estimado" }
                             ].map((s, idx) => (
                                 <div key={idx} className={cn(
                                     "glass-card p-10 rounded-[45px] border-white/5 shadow-2xl transition-all hover:translate-y-[-8px] cursor-default group border-b-8 shadow-inner",

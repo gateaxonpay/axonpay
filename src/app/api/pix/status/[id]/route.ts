@@ -71,16 +71,16 @@ export async function GET(
             })
             .eq('external_id', String(externalId));
 
-        // If completed deposit, credit user balance AND set withdrawal lock
-        if (mycashData.status === 'completed' && mycashData.type === 'deposit') {
+        // If completed, credit user balance AND set withdrawal lock
+        if (mycashData.status === 'completed') {
             const { data: tx } = await supabase
                 .from('transactions')
-                .select('user_id, amount_net')
+                .select('user_id, amount_net, type, status')
                 .eq('external_id', String(externalId))
                 .single();
 
-            if (tx && tx.user_id) {
-                // Get current balance
+            // Only credit if it's a deposit AND wasn't already completed (prevent double credit)
+            if (tx && tx.user_id && tx.type === 'deposit' && dbTx?.status !== 'completed') {
                 const { data: profile } = await supabase
                     .from('profiles')
                     .select('balance')
@@ -89,7 +89,6 @@ export async function GET(
 
                 if (profile) {
                     const newBalance = Number(profile.balance) + Number(tx.amount_net);
-                    // Lock withdrawal for 10 minutes
                     const lockUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
                     await supabase

@@ -6,7 +6,7 @@ import { LayoutWrapper } from "@/components/LayoutWrapper";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AxonPay | Gateway de Pagamentos PIX",
+  title: "AxionPay | Gateway de Pagamentos PIX",
   description: "O gateway de pagamentos mais rápido e seguro do mercado.",
 };
 

@@ -61,12 +61,12 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
                 {!hideSidebar && (
                     <div className="mt-20 py-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-black tracking-[0.3em] uppercase opacity-30 italic">
                         <div className="flex gap-8">
-                            <span>Protocolo Axon-301</span>
+                            <span>Protocolo Axion-301</span>
                             <span>Liquidez Descentralizada</span>
                         </div>
                         <div className="flex gap-8 text-[#EAB308]">
                             <span>Criptografia Militar Quantum-Safe</span>
-                            <span>AxonPay Gateway 2026</span>
+                            <span>AxionPay Gateway 2026</span>
                         </div>
                     </div>
                 )}

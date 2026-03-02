@@ -47,7 +47,7 @@ export default function AuthPage() {
                         <LogIn size={40} />
                     </div>
                     <h1 className="text-3xl font-black tracking-tight tracking-tighter">Acesso Protocolado</h1>
-                    <p className="text-muted-foreground text-[10px] uppercase tracking-[0.3em] font-black">AxonPay Secure Node v3</p>
+                    <p className="text-muted-foreground text-[10px] uppercase tracking-[0.3em] font-black">AxionPay Secure Node v3</p>
                 </div>
 
                 <form onSubmit={handleAuth} className="space-y-6 relative">
@@ -59,7 +59,7 @@ export default function AuthPage() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="usuário@axonpay.cc"
+                                placeholder="usuário@AxionPay.cc"
                                 className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-6 outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-bold placeholder:opacity-20"
                             />
                         </div>
@@ -99,7 +99,7 @@ export default function AuthPage() {
                 <div className="pt-6 border-t border-white/5 text-center">
                     <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-bold tracking-widest uppercase">
                         <ShieldCheck size={12} className="text-primary" />
-                        Firewall Axon Ativo
+                        Firewall Axion Ativo
                     </div>
                 </div>
             </motion.div>

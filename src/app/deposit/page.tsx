@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowUpCircle,
@@ -10,14 +10,16 @@ import {
     RefreshCcw,
     Clock,
     QrCode as QrCodeIcon,
-    AlertTriangle
+    AlertTriangle,
+    ShieldCheck,
+    Home,
+    Ban
 } from 'lucide-react';
 import { cn, formatBRL } from '@/lib/utils';
 import Decimal from 'decimal.js';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
-// Shape of what our API returns
 interface PixTransaction {
     id: string | null;
     external_id: string;
@@ -40,9 +42,11 @@ export default function DepositPage() {
     const [transaction, setTransaction] = useState<PixTransaction | null>(null);
     const [copySuccess, setCopySuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isChecking, setIsChecking] = useState(false);
+    const [penaltySeconds, setPenaltySeconds] = useState(0);
+    const [penaltyMessage, setPenaltyMessage] = useState(false);
     const router = useRouter();
 
-    // Real-time tax calculation
     const parsedAmount = parseFloat(amount) || 0;
     const netAmount = parsedAmount > 0
         ? new Decimal(parsedAmount).times(0.7).toDecimalPlaces(2).toNumber()
@@ -62,37 +66,84 @@ export default function DepositPage() {
         checkAuth();
     }, []);
 
-    // Polling: check MyCash status every 60s until is_final
+    // Check payment status function
+    const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
+        if (!transaction || transaction.is_final) return false;
+
+        try {
+            const res = await fetch(`/api/pix/status/${transaction.external_id}`);
+            const data = await res.json();
+
+            if (res.ok && data.status) {
+                const isCompleted = data.status === 'completed';
+                const isCancelled = data.status === 'cancelled';
+
+                setTransaction(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        status: data.status,
+                        is_final: data.is_final || isCompleted || isCancelled,
+                    };
+                });
+
+                return isCompleted;
+            }
+        } catch (e) {
+            console.error('Status check error:', e);
+        }
+        return false;
+    }, [transaction]);
+
+    // Penalty countdown timer
+    useEffect(() => {
+        if (penaltySeconds <= 0) return;
+
+        const timer = setInterval(() => {
+            setPenaltySeconds(prev => {
+                if (prev <= 1) {
+                    // Auto-check when penalty expires
+                    setPenaltyMessage(false);
+                    checkPaymentStatus();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [penaltySeconds, checkPaymentStatus]);
+
+    // Background polling every 60s (kept as fallback)
     useEffect(() => {
         let interval: NodeJS.Timeout;
-
-        if (transaction && !transaction.is_final) {
-            interval = setInterval(async () => {
-                try {
-                    // Use external_id (MyCash ID) for status check
-                    const res = await fetch(`/api/pix/status/${transaction.external_id}`);
-                    const data = await res.json();
-
-                    if (res.ok && data.status) {
-                        setTransaction(prev => {
-                            if (!prev) return prev;
-                            return {
-                                ...prev,
-                                status: data.status,
-                                is_final: data.is_final,
-                            };
-                        });
-                    }
-                } catch (e) {
-                    console.error('Polling error:', e);
-                }
-            }, 60000); // 60 seconds — rate-limit safe
+        if (transaction && !transaction.is_final && penaltySeconds === 0) {
+            interval = setInterval(() => {
+                checkPaymentStatus();
+            }, 60000);
         }
-
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [transaction]);
+    }, [transaction, penaltySeconds, checkPaymentStatus]);
+
+    // "Confirmar Pagamento" button handler
+    const handleConfirmPayment = async () => {
+        if (penaltySeconds > 0 || isChecking) return;
+
+        setIsChecking(true);
+        setPenaltyMessage(false);
+
+        const confirmed = await checkPaymentStatus();
+
+        if (!confirmed) {
+            // Payment not confirmed — apply 1 min penalty
+            setPenaltySeconds(60);
+            setPenaltyMessage(true);
+        }
+
+        setIsChecking(false);
+    };
 
     const handleGenerate = async () => {
         if (!amount || parsedAmount < 20) {
@@ -109,7 +160,6 @@ export default function DepositPage() {
                 router.push('/auth');
                 return;
             }
-            const userId = user.id;
 
             const res = await fetch('/api/pix/generate', {
                 method: 'POST',
@@ -117,7 +167,7 @@ export default function DepositPage() {
                 body: JSON.stringify({
                     amount: parsedAmount,
                     description: description || 'Depósito',
-                    user_id: userId,
+                    user_id: user.id,
                 }),
             });
 
@@ -127,7 +177,6 @@ export default function DepositPage() {
                 throw new Error(data.error || 'Erro ao gerar PIX');
             }
 
-            // data = { id, external_id, pix_copia_e_cola, qr_code_url, status, ... }
             setTransaction(data as PixTransaction);
         } catch (err: any) {
             setError(err.message || 'Erro ao gerar o PIX. Tente novamente.');
@@ -143,7 +192,6 @@ export default function DepositPage() {
             setCopySuccess(true);
             setTimeout(() => setCopySuccess(false), 2000);
         } catch {
-            // Fallback
             const input = document.createElement('textarea');
             input.value = transaction.pix_copia_e_cola;
             document.body.appendChild(input);
@@ -160,6 +208,8 @@ export default function DepositPage() {
         setAmount('');
         setDescription('Pagamento');
         setError(null);
+        setPenaltySeconds(0);
+        setPenaltyMessage(false);
     };
 
     return (
@@ -228,7 +278,7 @@ export default function DepositPage() {
                             )}
                         </div>
 
-                        {/* Tax Engine — Real-time */}
+                        {/* Tax Engine */}
                         <div className="p-6 bg-white/[0.03] rounded-2xl border border-white/5 space-y-4">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground flex items-center gap-2">
@@ -270,7 +320,7 @@ export default function DepositPage() {
                         <AlertTriangle className="text-yellow-500 shrink-0" size={24} />
                         <p className="text-sm text-yellow-200/70 leading-relaxed">
                             <strong>Atenção:</strong> O valor será creditado após a confirmação automática na rede PIX.
-                            O processo geralmente leva menos de 10 segundos. O QR Code expira em 60 minutos.
+                            O QR Code expira em 60 minutos.
                         </p>
                     </div>
                 </div>
@@ -296,26 +346,58 @@ export default function DepositPage() {
                                     </p>
                                 </div>
                             </motion.div>
+                        ) : transaction.status === 'completed' ? (
+                            /* CONFIRMED STATE */
+                            <motion.div
+                                key="confirmed"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="glass-card p-10 rounded-3xl space-y-8 flex flex-col items-center text-center border-green-500/20"
+                            >
+                                <div className="w-28 h-28 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center text-green-500 shadow-2xl shadow-green-500/20">
+                                    <CheckCircle2 size={56} className="animate-bounce" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-3xl font-black italic uppercase tracking-tighter text-green-400">Pagamento Confirmado!</h3>
+                                    <p className="text-muted-foreground text-sm">
+                                        <span className="text-white font-bold">{formatBRL(transaction.amount_net)}</span> creditados no seu saldo.
+                                    </p>
+                                </div>
+                                <div className="p-6 bg-green-500/5 rounded-2xl border border-green-500/10 w-full space-y-3">
+                                    <div className="flex justify-between text-xs uppercase tracking-widest font-bold">
+                                        <span className="text-muted-foreground">Valor Pago</span>
+                                        <span className="text-white">{formatBRL(transaction.amount_original)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs uppercase tracking-widest font-bold">
+                                        <span className="text-muted-foreground">Creditado</span>
+                                        <span className="text-green-400">{formatBRL(transaction.amount_net)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs uppercase tracking-widest font-bold">
+                                        <span className="text-muted-foreground">Status</span>
+                                        <span className="text-green-400 flex items-center gap-1"><CheckCircle2 size={12} /> Finalizado</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => router.push('/')}
+                                    className="w-full h-16 gold-gradient rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] transition-all"
+                                >
+                                    <Home size={20} />
+                                    Ir para Dashboard
+                                </button>
+                            </motion.div>
                         ) : (
+                            /* PENDING STATE — QR Code + Confirm Button */
                             <motion.div
                                 key="qrcode"
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="glass-card p-10 rounded-3xl space-y-8 flex flex-col items-center"
+                                className="glass-card p-10 rounded-3xl space-y-6 flex flex-col items-center"
                             >
-                                {/* Status Header */}
                                 <div className="text-center space-y-2">
-                                    {transaction.status === 'completed' ? (
-                                        <div className="flex items-center justify-center gap-2 text-green-500 mb-2">
-                                            <CheckCircle2 size={16} />
-                                            <span className="text-xs font-bold uppercase tracking-widest">Pagamento Confirmado!</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-center gap-2 text-yellow-500 mb-2">
-                                            <Clock size={16} className="animate-pulse" />
-                                            <span className="text-xs font-bold uppercase tracking-widest">Aguardando Pagamento</span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center justify-center gap-2 text-yellow-500 mb-2">
+                                        <Clock size={16} className="animate-pulse" />
+                                        <span className="text-xs font-bold uppercase tracking-widest">Aguardando Pagamento</span>
+                                    </div>
                                     <h3 className="text-2xl font-black">{formatBRL(transaction.amount_original)}</h3>
                                 </div>
 
@@ -326,16 +408,10 @@ export default function DepositPage() {
                                         alt="PIX QR Code"
                                         className="w-56 h-56"
                                     />
-                                    {transaction.status === 'completed' && (
-                                        <div className="absolute inset-0 bg-green-500/90 flex flex-col items-center justify-center text-white p-6 rounded-3xl">
-                                            <CheckCircle2 size={64} className="mb-4 animate-bounce" />
-                                            <span className="font-black text-xl">PAGO!</span>
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* Copia e Cola */}
-                                <div className="w-full space-y-4">
+                                <div className="w-full space-y-3">
                                     <div className="space-y-2">
                                         <p className="text-xs font-bold uppercase text-muted-foreground ml-2">
                                             PIX Copia e Cola
@@ -365,19 +441,70 @@ export default function DepositPage() {
 
                                     <button
                                         onClick={copyToClipboard}
-                                        className="w-full py-4 bg-primary/10 border border-primary/20 rounded-xl text-primary text-sm font-bold uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2"
+                                        className="w-full py-3 bg-primary/10 border border-primary/20 rounded-xl text-primary text-sm font-bold uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2"
                                     >
                                         <Copy size={16} />
                                         Copiar Código PIX
                                     </button>
-
-                                    {transaction.status !== 'completed' && (
-                                        <div className="flex items-center justify-center gap-3 py-2 text-xs text-muted-foreground">
-                                            <RefreshCcw size={14} className="animate-spin" />
-                                            Verificando pagamento automaticamente...
-                                        </div>
-                                    )}
                                 </div>
+
+                                {/* PENALTY COUNTDOWN */}
+                                {penaltyMessage && penaltySeconds > 0 && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="w-full p-5 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-3"
+                                    >
+                                        <div className="flex items-center gap-3 text-red-400 font-black text-xs uppercase tracking-widest">
+                                            <Ban size={18} />
+                                            Pagamento não detectado
+                                        </div>
+                                        <p className="text-[11px] text-red-300/60 leading-relaxed">
+                                            Protocolo de segurança ativado. Consulta disponível novamente em:
+                                        </p>
+                                        <div className="text-center">
+                                            <span className="text-4xl font-black text-red-400 font-mono tabular-nums">
+                                                {String(Math.floor(penaltySeconds / 60)).padStart(2, '0')}:{String(penaltySeconds % 60).padStart(2, '0')}
+                                            </span>
+                                        </div>
+                                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: '100%' }}
+                                                animate={{ width: '0%' }}
+                                                transition={{ duration: penaltySeconds, ease: 'linear' }}
+                                                className="h-full bg-red-500/50 rounded-full"
+                                            />
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* CONFIRM PAYMENT BUTTON */}
+                                <button
+                                    onClick={handleConfirmPayment}
+                                    disabled={isChecking || penaltySeconds > 0}
+                                    className={cn(
+                                        "w-full h-16 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all text-sm",
+                                        penaltySeconds > 0
+                                            ? "bg-white/5 border border-white/10 text-muted-foreground/30 cursor-not-allowed"
+                                            : "bg-gradient-to-r from-green-600 to-emerald-600 hover:scale-[1.02] active:scale-100 shadow-2xl shadow-green-900/30"
+                                    )}
+                                >
+                                    {isChecking ? (
+                                        <RefreshCcw size={20} className="animate-spin" />
+                                    ) : penaltySeconds > 0 ? (
+                                        <Clock size={20} />
+                                    ) : (
+                                        <ShieldCheck size={20} />
+                                    )}
+                                    {isChecking ? 'Verificando...' : penaltySeconds > 0 ? `Aguarde ${penaltySeconds}s` : 'Confirmar Pagamento'}
+                                </button>
+
+                                {!penaltyMessage && penaltySeconds === 0 && (
+                                    <div className="flex items-center justify-center gap-3 py-1 text-xs text-muted-foreground/40">
+                                        <RefreshCcw size={12} className="animate-spin" />
+                                        Verificação automática a cada 60s
+                                    </div>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
