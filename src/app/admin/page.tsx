@@ -45,6 +45,7 @@ export default function AdminPage() {
     const [realTimeFeed, setRealTimeFeed] = useState<Transaction[]>([]);
     const [userMetrics, setUserMetrics] = useState<UserMetric[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const correctPin = '171033';
 
@@ -99,6 +100,11 @@ export default function AdminPage() {
             fetchAdminData();
         }
     };
+
+    const filteredUsers = userMetrics.filter(u =>
+        u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     if (!isAdmin) {
         return (
@@ -265,6 +271,7 @@ export default function AdminPage() {
                                             if (res.ok) {
                                                 alert("OPERADOR VALIDADO COM SUCESSO!");
                                                 emailEl.value = ''; passEl.value = '';
+                                                // Immediate fetch after creation
                                                 fetchAdminData();
                                             } else {
                                                 alert("ERRO: " + data.error);
@@ -409,12 +416,14 @@ export default function AdminPage() {
                                 <input
                                     type="text"
                                     placeholder="Localizar Operador..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
                                     className="h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 outline-none focus:border-primary/50 transition-all text-sm font-bold w-80"
                                 />
                             </div>
                         </div>
 
-                        <div className="glass-card rounded-[50px] border-white/5 overflow-hidden shadow-3xl">
+                        <div className="glass-card rounded-[50px] border-white/5 overflow-hidden shadow-3xl min-h-[400px]">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
@@ -428,7 +437,25 @@ export default function AdminPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {userMetrics.map((user) => (
+                                        {isLoading ? (
+                                            <tr>
+                                                <td colSpan={6} className="p-20 text-center">
+                                                    <div className="flex flex-col items-center gap-4 opacity-50">
+                                                        <Activity className="animate-spin text-primary" size={32} />
+                                                        <p className="text-[10px] uppercase font-black tracking-widest">Sincronizando Database...</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : filteredUsers.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="p-20 text-center">
+                                                    <div className="flex flex-col items-center gap-4 opacity-30">
+                                                        <Search size={48} />
+                                                        <p className="text-[10px] uppercase font-black tracking-widest italic">Nenhum operador localizado no cluster</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : filteredUsers.map((user) => (
                                             <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
                                                 <td className="p-8">
                                                     <div className="flex items-center gap-4">
