@@ -257,7 +257,7 @@ export default function WithdrawPage() {
 
                                     <button
                                         onClick={handleWithdraw}
-                                        disabled={isProcessing || !amount || requestedValue <= 0 || (!!lockUntil && new Date() < new Date(lockUntil))}
+                                        disabled={isProcessing || !amount || requestedValue <= 0 || requestedValue > balance || (!!lockUntil && new Date() < new Date(lockUntil))}
                                         className="w-full h-20 bg-gradient-to-r from-red-600 to-orange-600 rounded-[28px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all shadow-2xl shadow-red-900/30 disabled:opacity-30 disabled:grayscale"
                                     >
                                         {isProcessing ? (
