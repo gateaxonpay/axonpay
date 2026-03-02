@@ -51,7 +51,7 @@ export async function GET(req: Request) {
             .reduce((sum: number, t: any) => sum + Number(t.amount_original), 0);
 
         const totalGenerated = txs
-            .filter((t: any) => t.type === 'deposit')
+            .filter((t: any) => t.type === 'deposit' && t.status !== 'cancelled')
             .reduce((sum: number, t: any) => sum + Number(t.amount_original), 0);
 
         // 4. Per-user metrics

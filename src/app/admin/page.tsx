@@ -153,8 +153,31 @@ export default function AdminPage() {
         }
     };
 
+    const handleResetSystem = async () => {
+        if (!confirm("⚠️ ATENÇÃO: Isso apagará TODAS as transações e zerará o saldo de TODOS os operadores. Esta ação é irreversível. CONFIRMAR RESET?")) {
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const res = await fetch('/api/admin/reset-data', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                alert("SISTEMA RESETADO COM SUCESSO!");
+                await fetchAdminData();
+            } else {
+                alert("ERRO: " + data.error);
+            }
+        } catch (err) {
+            alert("Falha crítica ao resetar.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const filteredUsers = userMetrics.filter(u =>
         u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.id.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -564,147 +587,158 @@ export default function AdminPage() {
                                     <p className="text-[9px] text-muted-foreground/40 italic ml-4">* Esta chave é usada para gerar todos os PIX da plataforma.</p>
                                 </div>
 
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const res = await fetch('/api/admin/settings', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ key: 'MYCASH_API_KEY', value: mycashApiKey })
-                                            });
-                                            if (res.ok) {
-                                                alert("CONFIGURAÇÕES SALVAS COM SUCESSO!");
-                                            } else {
-                                                const d = await res.json();
-                                                alert("ERRO: " + d.error);
-                                            }
-                                        } catch (err) {
-                                            alert("Falha ao salvar configurações.");
-                                        }
-                                    }}
-                                    className="h-20 w-80 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[28px] font-black uppercase tracking-[0.3em] transition-all text-xs italic"
-                                >
-                                    Salvar Alterações
-                                </button>
-                            </div>
-                        </div>
-                        {/* Create User Modal */}
-                        <AnimatePresence>
-                            {isUserModalOpen && (
-                                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        onClick={() => !isCreatingUser && setIsUserModalOpen(false)}
-                                        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
-                                    />
-
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                                        className="glass-card w-full max-w-xl p-12 rounded-[60px] border-white/5 shadow-2xl relative z-10"
-                                    >
-                                        <div className="flex items-center gap-6 mb-12">
-                                            <div className="w-20 h-20 rounded-[30px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl shadow-primary/10">
-                                                <UserPlus size={40} />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Novo Protocolo</h2>
-                                                <p className="text-[11px] text-muted-foreground uppercase font-black tracking-[0.3em] mt-1 opacity-50">Inserção de Operador na Rede</p>
-                                            </div>
-                                        </div>
-
-                                        <form className="space-y-10" onSubmit={async (e) => {
-                                            e.preventDefault();
-                                            const email = (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
-                                            const password = (e.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
-                                            const name = (e.currentTarget.elements.namedItem('name') as HTMLInputElement).value;
-
-                                            if (!email || !password || !name) return;
-
-                                            setIsCreatingUser(true);
+                                <div className="flex flex-wrap gap-6 pt-10">
+                                    <button
+                                        onClick={async () => {
                                             try {
-                                                const res = await fetch('/api/admin/users/create', {
+                                                const res = await fetch('/api/admin/settings', {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ email, password, name }),
+                                                    body: JSON.stringify({ key: 'MYCASH_API_KEY', value: mycashApiKey })
                                                 });
-
-                                                const data = await res.json();
                                                 if (res.ok) {
-                                                    setIsUserModalOpen(false);
-                                                    setActiveTab('users');
-                                                    await fetchAdminData();
+                                                    alert("CONFIGURAÇÕES SALVAS COM SUCESSO!");
                                                 } else {
-                                                    alert("FALHA: " + data.error);
+                                                    const d = await res.json();
+                                                    alert("ERRO: " + d.error);
                                                 }
                                             } catch (err) {
-                                                alert("ERRO DE CONEXÃO");
-                                            } finally {
-                                                setIsCreatingUser(false);
+                                                alert("Falha ao salvar configurações.");
                                             }
-                                        }}>
-                                            <div className="space-y-4">
-                                                <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Nome do Operador</label>
-                                                <input
-                                                    name="name"
-                                                    type="text"
-                                                    required
-                                                    disabled={isCreatingUser}
-                                                    placeholder="ex: Renato Régis"
-                                                    className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20"
-                                                />
-                                            </div>
+                                        }}
+                                        className="h-20 px-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[28px] font-black uppercase tracking-[0.3em] transition-all text-xs italic"
+                                    >
+                                        Salvar Alterações
+                                    </button>
 
-                                            <div className="space-y-4">
-                                                <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Identificação Corporativa (E-mail)</label>
-                                                <input
-                                                    name="email"
-                                                    type="email"
-                                                    required
-                                                    disabled={isCreatingUser}
-                                                    placeholder="ex: admin@axion.cc"
-                                                    className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Chave de Acesso (Senha)</label>
-                                                <input
-                                                    name="password"
-                                                    type="password"
-                                                    required
-                                                    disabled={isCreatingUser}
-                                                    placeholder="••••••••"
-                                                    className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-xl"
-                                                />
-                                            </div>
-
-                                            <div className="flex gap-6 pt-10">
-                                                <button
-                                                    type="button"
-                                                    disabled={isCreatingUser}
-                                                    onClick={() => setIsUserModalOpen(false)}
-                                                    className="flex-1 h-24 bg-white/5 border border-white/10 rounded-[35px] font-black uppercase tracking-[0.3em] transition-all hover:bg-white/10 text-[10px]"
-                                                >
-                                                    Abortar
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    disabled={isCreatingUser}
-                                                    className="flex-[2] h-24 gold-gradient rounded-[35px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-6 hover:scale-[1.02] active:scale-95 transition-all text-base italic shadow-2xl shadow-yellow-900/30 disabled:opacity-50 disabled:grayscale"
-                                                >
-                                                    {isCreatingUser ? "Sincronizando..." : "Validar Operador"} <CheckCircle2 size={30} />
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </motion.div>
+                                    <button
+                                        onClick={handleResetSystem}
+                                        className="h-20 px-12 bg-red-600/10 hover:bg-red-600 border border-red-600/20 text-red-500 hover:text-white rounded-[28px] font-black uppercase tracking-[0.3em] transition-all text-xs italic flex items-center gap-4"
+                                    >
+                                        Limpar Sistema (Zerar Tudo) <Trash2 size={20} />
+                                    </button>
                                 </div>
-                            )}
-                        </AnimatePresence>
+                            </div>
+                        </div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Create User Modal - GLOBAL LEVEL */}
+            <AnimatePresence>
+                {isUserModalOpen && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !isCreatingUser && setIsUserModalOpen(false)}
+                            className="absolute inset-0 bg-black/95 backdrop-blur-md"
+                        />
+
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="glass-card w-full max-w-xl p-12 rounded-[60px] border-white/5 shadow-2xl relative z-10"
+                        >
+                            <div className="flex items-center gap-6 mb-12">
+                                <div className="w-20 h-20 rounded-[30px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl shadow-primary/10">
+                                    <UserPlus size={40} />
+                                </div>
+                                <div>
+                                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Novo Protocolo</h2>
+                                    <p className="text-[11px] text-muted-foreground uppercase font-black tracking-[0.3em] mt-1 opacity-50">Inserção de Operador na Rede</p>
+                                </div>
+                            </div>
+
+                            <form className="space-y-10" onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const email = formData.get('email') as string;
+                                const password = formData.get('password') as string;
+                                const name = formData.get('name') as string;
+
+                                if (!email || !password || !name) return;
+
+                                setIsCreatingUser(true);
+                                try {
+                                    const res = await fetch('/api/admin/users/create', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ email, password, name }),
+                                    });
+
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                        setIsUserModalOpen(false);
+                                        setActiveTab('users');
+                                        await fetchAdminData();
+                                    } else {
+                                        alert("FALHA: " + data.error);
+                                    }
+                                } catch (err) {
+                                    alert("ERRO DE CONEXÃO");
+                                } finally {
+                                    setIsCreatingUser(false);
+                                }
+                            }}>
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Nome do Operador</label>
+                                    <input
+                                        name="name"
+                                        type="text"
+                                        required
+                                        disabled={isCreatingUser}
+                                        placeholder="ex: Renato Régis"
+                                        className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20"
+                                    />
+                                </div>
+
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Identificação Corporativa (E-mail)</label>
+                                    <input
+                                        name="email"
+                                        type="email"
+                                        required
+                                        disabled={isCreatingUser}
+                                        placeholder="ex: admin@axion.cc"
+                                        className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-white text-xl placeholder:opacity-20"
+                                    />
+                                </div>
+
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Chave de Acesso (Senha)</label>
+                                    <input
+                                        name="password"
+                                        type="password"
+                                        required
+                                        disabled={isCreatingUser}
+                                        placeholder="••••••••"
+                                        className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-xl"
+                                    />
+                                </div>
+
+                                <div className="flex gap-6 pt-10">
+                                    <button
+                                        type="button"
+                                        disabled={isCreatingUser}
+                                        onClick={() => setIsUserModalOpen(false)}
+                                        className="flex-1 h-24 bg-white/5 border border-white/10 rounded-[35px] font-black uppercase tracking-[0.3em] transition-all hover:bg-white/10 text-[10px]"
+                                    >
+                                        Abortar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isCreatingUser}
+                                        className="flex-[2] h-24 gold-gradient rounded-[35px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-6 hover:scale-[1.02] active:scale-95 transition-all text-base italic shadow-2xl shadow-yellow-900/30 disabled:opacity-50 disabled:grayscale"
+                                    >
+                                        {isCreatingUser ? "Sincronizando..." : "Validar Operador"} <CheckCircle2 size={30} />
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>
