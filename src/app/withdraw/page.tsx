@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowDownCircle,
@@ -8,12 +8,14 @@ import {
     Info,
     ShieldCheck,
     ArrowRight,
-    User as UserIcon,
     AlertTriangle,
     Loader2,
     RefreshCcw,
     CheckCircle2,
-    Key
+    Key,
+    Clock,
+    Ban,
+    Home
 } from 'lucide-react';
 import { cn, formatBRL } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +27,16 @@ interface SavedPixKey {
     pix_key: string;
 }
 
+interface WithdrawTransaction {
+    id: string;
+    external_id: string;
+    status: string;
+    is_final: boolean;
+    amount_original: number;
+    amount_net: number;
+    pix_copia_e_cola: string;
+}
+
 export default function WithdrawPage() {
     const [balance, setBalance] = useState(0);
     const [pixType, setPixType] = useState('CPF');
@@ -33,9 +45,14 @@ export default function WithdrawPage() {
     const [savedKeys, setSavedKeys] = useState<SavedPixKey[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
+
+    // Polling state
+    const [withdrawTx, setWithdrawTx] = useState<WithdrawTransaction | null>(null);
+    const [isChecking, setIsChecking] = useState(false);
+    const [penaltySeconds, setPenaltySeconds] = useState(0);
+    const [penaltyMessage, setPenaltyMessage] = useState(false);
 
     useEffect(() => {
         async function loadData() {
@@ -77,9 +94,88 @@ export default function WithdrawPage() {
     }, []);
 
     const requestedValue = parseFloat(amount) || 0;
-    // No fee on withdrawal — 30% was already charged on deposit
     const netValue = requestedValue;
-    const feeValue = 0;
+
+    // Check withdraw status via the existing status API
+    const checkWithdrawStatus = useCallback(async (): Promise<boolean> => {
+        if (!withdrawTx || withdrawTx.is_final) return false;
+
+        try {
+            const res = await fetch(`/api/pix/status/${withdrawTx.external_id}`);
+            const data = await res.json();
+
+            if (res.ok && data.status) {
+                const isCompleted = data.status === 'completed';
+                const isFailed = data.status === 'cancelled' || data.status === 'failed';
+
+                setWithdrawTx(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        status: data.status,
+                        is_final: data.is_final || isCompleted || isFailed,
+                    };
+                });
+
+                return isCompleted;
+            }
+        } catch (e) {
+            console.error('Withdraw status check error:', e);
+        }
+        return false;
+    }, [withdrawTx]);
+
+    // Background polling every 60s
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (withdrawTx && !withdrawTx.is_final && penaltySeconds === 0) {
+            interval = setInterval(() => {
+                checkWithdrawStatus();
+            }, 60000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [withdrawTx, penaltySeconds, checkWithdrawStatus]);
+
+    // Penalty countdown timer
+    useEffect(() => {
+        if (penaltySeconds <= 0) return;
+
+        const timer = setInterval(() => {
+            setPenaltySeconds(prev => {
+                if (prev <= 1) {
+                    setPenaltyMessage(false);
+                    checkWithdrawStatus();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [penaltySeconds, checkWithdrawStatus]);
+
+    // Manual "Confirmar Saque" button handler
+    const handleConfirmWithdraw = async () => {
+        if (penaltySeconds > 0 || isChecking) return;
+
+        setIsChecking(true);
+        setPenaltyMessage(false);
+
+        const confirmed = await checkWithdrawStatus();
+
+        if (confirmed) {
+            // Success — withdraw was processed by MyCash
+            // No need to redirect, the UI will change automatically
+        } else {
+            // Not confirmed yet — apply 1 min penalty
+            setPenaltySeconds(60);
+            setPenaltyMessage(true);
+        }
+
+        setIsChecking(false);
+    };
 
     const handleWithdraw = async () => {
         if (!amount || requestedValue <= 0) {
@@ -120,7 +216,19 @@ export default function WithdrawPage() {
                 throw new Error(data.error || 'Erro ao processar saque');
             }
 
-            setSuccess(true);
+            // Save the transaction for polling
+            if (data.transaction) {
+                setWithdrawTx({
+                    id: data.transaction.id,
+                    external_id: data.transaction.external_id,
+                    status: data.transaction.status || 'processing',
+                    is_final: false,
+                    amount_original: data.transaction.amount_original,
+                    amount_net: data.transaction.amount_net,
+                    pix_copia_e_cola: data.transaction.pix_copia_e_cola || pixKey,
+                });
+            }
+
             setBalance(b => b - requestedValue);
         } catch (err: any) {
             setError(err.message || 'Erro ao processar o saque.');
@@ -137,6 +245,12 @@ export default function WithdrawPage() {
         );
     }
 
+    // Determine which view to show
+    const hasActiveWithdraw = withdrawTx !== null;
+    const isWithdrawCompleted = withdrawTx?.status === 'completed';
+    const isWithdrawFailed = withdrawTx?.status === 'cancelled' || withdrawTx?.status === 'failed';
+    const isWithdrawProcessing = hasActiveWithdraw && !isWithdrawCompleted && !isWithdrawFailed;
+
     return (
         <div className="max-w-4xl mx-auto pb-20 px-4 md:px-0">
             <div className="flex flex-col md:flex-row items-center md:items-center gap-4 mb-10 text-center md:text-left">
@@ -152,8 +266,10 @@ export default function WithdrawPage() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
                 <div className="lg:col-span-3 space-y-8">
                     <AnimatePresence mode="wait">
-                        {!success ? (
+                        {!hasActiveWithdraw ? (
+                            /* FORM STATE — no active withdraw */
                             <motion.div
+                                key="form"
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, scale: 0.9 }}
@@ -261,8 +377,6 @@ export default function WithdrawPage() {
                                         </div>
                                     </div>
 
-
-
                                     {error && (
                                         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 font-bold text-xs uppercase tracking-widest shadow-lg shadow-red-900/10">
                                             <AlertTriangle size={18} />
@@ -286,23 +400,92 @@ export default function WithdrawPage() {
                                     </button>
                                 </div>
                             </motion.div>
-                        ) : (
+                        ) : isWithdrawCompleted ? (
+                            /* COMPLETED STATE */
                             <motion.div
+                                key="completed"
                                 initial={{ opacity: 0, scale: 0.9 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="glass-card p-12 rounded-[40px] text-center space-y-8 flex flex-col items-center justify-center min-h-[500px] border-green-500/10"
+                                className="glass-card p-10 md:p-12 rounded-[40px] text-center space-y-8 flex flex-col items-center justify-center min-h-[500px] border-green-500/10"
                             >
                                 <div className="w-32 h-32 rounded-full bg-green-500/10 border-2 border-green-500/20 flex items-center justify-center text-green-500 mb-4 shadow-2xl shadow-green-500/20">
                                     <CheckCircle2 size={64} className="animate-bounce" />
                                 </div>
                                 <div className="space-y-4">
-                                    <h2 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase">Transferência Solicitada</h2>
+                                    <h2 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase text-green-400">Saque Confirmado!</h2>
                                     <p className="text-muted-foreground text-base md:text-lg max-w-[320px] mx-auto leading-relaxed">
-                                        Liquidação de <span className="text-white font-bold">{formatBRL(netValue)}</span> enviada com prioridade para <span className="text-white font-mono break-all">{pixKey}</span>.
+                                        <span className="text-white font-bold">{formatBRL(withdrawTx.amount_net)}</span> enviados com sucesso para <span className="text-white font-mono break-all">{withdrawTx.pix_copia_e_cola}</span>.
                                     </p>
                                 </div>
 
-                                <div className="w-full p-6 md:p-8 bg-white/5 rounded-3xl border border-white/5 space-y-4 max-w-sm">
+                                <div className="w-full p-6 md:p-8 bg-green-500/5 rounded-3xl border border-green-500/10 space-y-3 max-w-sm">
+                                    <div className="flex justify-between text-xs uppercase tracking-widest font-bold">
+                                        <span className="text-muted-foreground">Valor Solicitado</span>
+                                        <span className="text-white">{formatBRL(withdrawTx.amount_net)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs uppercase tracking-widest font-bold">
+                                        <span className="text-muted-foreground">Status</span>
+                                        <span className="text-green-400 flex items-center gap-1"><CheckCircle2 size={12} /> Finalizado</span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => router.push('/')}
+                                    className="w-full max-w-sm h-16 gold-gradient rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] transition-all"
+                                >
+                                    <Home size={20} />
+                                    Ir para Dashboard
+                                </button>
+                            </motion.div>
+                        ) : isWithdrawFailed ? (
+                            /* FAILED STATE */
+                            <motion.div
+                                key="failed"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="glass-card p-10 md:p-12 rounded-[40px] text-center space-y-8 flex flex-col items-center justify-center min-h-[500px] border-red-500/10"
+                            >
+                                <div className="w-32 h-32 rounded-full bg-red-500/10 border-2 border-red-500/20 flex items-center justify-center text-red-500 mb-4 shadow-2xl shadow-red-500/20">
+                                    <AlertTriangle size={64} />
+                                </div>
+                                <div className="space-y-4">
+                                    <h2 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase text-red-400">Saque Falhou</h2>
+                                    <p className="text-muted-foreground text-base md:text-lg max-w-[320px] mx-auto leading-relaxed">
+                                        O protocolo de saque não pôde ser processado. O valor será estornado ao seu saldo.
+                                    </p>
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        setWithdrawTx(null);
+                                        setAmount('');
+                                        setPenaltySeconds(0);
+                                        setPenaltyMessage(false);
+                                    }}
+                                    className="w-full max-w-sm h-16 bg-white/5 border border-white/10 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-white/10 transition-all"
+                                >
+                                    Tentar Novamente
+                                </button>
+                            </motion.div>
+                        ) : (
+                            /* PROCESSING STATE — polling */
+                            <motion.div
+                                key="processing"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="glass-card p-10 md:p-12 rounded-[40px] text-center space-y-8 flex flex-col items-center justify-center min-h-[500px] border-blue-500/10"
+                            >
+                                <div className="w-32 h-32 rounded-full bg-blue-500/10 border-2 border-blue-500/20 flex items-center justify-center text-blue-400 mb-4 shadow-2xl shadow-blue-500/20">
+                                    <RefreshCcw size={56} className="animate-spin" />
+                                </div>
+                                <div className="space-y-4">
+                                    <h2 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase">Saque em Processamento</h2>
+                                    <p className="text-muted-foreground text-base md:text-lg max-w-[340px] mx-auto leading-relaxed">
+                                        Liquidação de <span className="text-white font-bold">{formatBRL(withdrawTx!.amount_net)}</span> enviada para <span className="text-white font-mono break-all">{withdrawTx!.pix_copia_e_cola}</span>.
+                                    </p>
+                                </div>
+
+                                <div className="w-full max-w-sm p-6 md:p-8 bg-white/5 rounded-3xl border border-white/5 space-y-4">
                                     <div className="flex justify-between items-center text-[9px] md:text-[10px] font-black uppercase tracking-widest">
                                         <span className="text-muted-foreground">Status do Protocolo</span>
                                         <span className="text-blue-400 flex items-center gap-1">
@@ -319,12 +502,72 @@ export default function WithdrawPage() {
                                     </div>
                                 </div>
 
+                                {/* PENALTY COUNTDOWN */}
+                                {penaltyMessage && penaltySeconds > 0 && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="w-full max-w-sm p-4 md:p-5 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-3"
+                                    >
+                                        <div className="flex items-center gap-3 text-red-400 font-black text-[10px] md:text-xs uppercase tracking-widest">
+                                            <Ban size={16} />
+                                            Saque ainda não confirmado
+                                        </div>
+                                        <p className="text-[10px] md:text-[11px] text-red-300/60 leading-relaxed">
+                                            Protocolo de segurança ativado. Consulta disponível novamente em:
+                                        </p>
+                                        <div className="text-center">
+                                            <span className="text-3xl md:text-4xl font-black text-red-400 font-mono tabular-nums">
+                                                {String(Math.floor(penaltySeconds / 60)).padStart(2, '0')}:{String(penaltySeconds % 60).padStart(2, '0')}
+                                            </span>
+                                        </div>
+                                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: '100%' }}
+                                                animate={{ width: '0%' }}
+                                                transition={{ duration: penaltySeconds, ease: 'linear' }}
+                                                className="h-full bg-red-500/50 rounded-full"
+                                            />
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* CONFIRM BUTTON */}
+                                <button
+                                    onClick={handleConfirmWithdraw}
+                                    disabled={isChecking || penaltySeconds > 0}
+                                    className={cn(
+                                        "w-full max-w-sm h-16 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all text-sm",
+                                        penaltySeconds > 0
+                                            ? "bg-white/5 border border-white/10 text-muted-foreground/30 cursor-not-allowed"
+                                            : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:scale-[1.02] active:scale-100 shadow-2xl shadow-blue-900/30"
+                                    )}
+                                >
+                                    {isChecking ? (
+                                        <RefreshCcw size={20} className="animate-spin" />
+                                    ) : penaltySeconds > 0 ? (
+                                        <Clock size={20} />
+                                    ) : (
+                                        <ShieldCheck size={20} />
+                                    )}
+                                    {isChecking ? 'Verificando...' : penaltySeconds > 0 ? `Aguarde ${penaltySeconds}s` : 'Verificar Status do Saque'}
+                                </button>
+
+                                {!penaltyMessage && penaltySeconds === 0 && (
+                                    <div className="flex items-center justify-center gap-3 py-1 text-xs text-muted-foreground/40">
+                                        <RefreshCcw size={12} className="animate-spin" />
+                                        Verificação automática a cada 60s
+                                    </div>
+                                )}
+
                                 <button
                                     onClick={() => {
-                                        setSuccess(false);
+                                        setWithdrawTx(null);
                                         setAmount('');
+                                        setPenaltySeconds(0);
+                                        setPenaltyMessage(false);
                                     }}
-                                    className="mt-6 text-primary font-black uppercase tracking-[0.2em] hover:underline text-xs"
+                                    className="mt-2 text-primary font-black uppercase tracking-[0.2em] hover:underline text-xs"
                                 >
                                     Realizar novo protocolo
                                 </button>
@@ -355,8 +598,6 @@ export default function WithdrawPage() {
                             </div>
                         </div>
                     </div>
-
-
                 </div>
             </div>
         </div>
