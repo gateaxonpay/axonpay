@@ -43,8 +43,10 @@ export async function POST(req: Request) {
             }, { onConflict: 'id' });
 
         if (profileError) {
-            console.error("Profile creation error:", profileError);
-            throw new Error("Erro ao criar perfil do operador no banco de dados.");
+            console.error("Profile creation error details:", profileError);
+            return NextResponse.json({
+                error: `Erro no banco de dados: ${profileError.message || 'Falha ao criar perfil'}`
+            }, { status: 500 });
         }
 
         return NextResponse.json({

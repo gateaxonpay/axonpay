@@ -20,7 +20,8 @@ import {
     Database,
     Search,
     Wallet,
-    Trash2
+    Trash2,
+    AlertTriangle
 } from 'lucide-react';
 import { cn, formatBRL } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -53,6 +54,8 @@ export default function AdminPage() {
     const [mycashApiKey, setMycashApiKey] = useState('');
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [isCreatingUser, setIsCreatingUser] = useState(false);
+    const [modalError, setModalError] = useState<string | null>(null);
+    const [settingsStatus, setSettingsStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
     const correctPin = '171033';
 
@@ -611,13 +614,14 @@ export default function AdminPage() {
                                                     body: JSON.stringify({ key: 'MYCASH_API_KEY', value: mycashApiKey })
                                                 });
                                                 if (res.ok) {
-                                                    alert("CONFIGURAÇÕES SALVAS COM SUCESSO!");
+                                                    setSettingsStatus({ type: 'success', message: "CONFIGURAÇÕES SALVAS COM SUCESSO!" });
+                                                    setTimeout(() => setSettingsStatus(null), 3000);
                                                 } else {
                                                     const d = await res.json();
-                                                    alert("ERRO: " + d.error);
+                                                    setSettingsStatus({ type: 'error', message: "ERRO: " + d.error });
                                                 }
                                             } catch (err) {
-                                                alert("Falha ao salvar configurações.");
+                                                setSettingsStatus({ type: 'error', message: "Falha ao salvar configurações." });
                                             }
                                         }}
                                         className="h-20 px-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[28px] font-black uppercase tracking-[0.3em] transition-all text-xs italic"
@@ -632,6 +636,15 @@ export default function AdminPage() {
                                         Limpar Sistema (Zerar Tudo) <Trash2 size={20} />
                                     </button>
                                 </div>
+
+                                {settingsStatus && (
+                                    <div className={cn(
+                                        "p-6 rounded-3xl border font-black text-[10px] uppercase tracking-widest",
+                                        settingsStatus.type === 'success' ? "bg-green-500/10 border-green-500/20 text-green-500" : "bg-red-500/10 border-red-500/20 text-red-500"
+                                    )}>
+                                        {settingsStatus.message}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </motion.div>
@@ -666,6 +679,13 @@ export default function AdminPage() {
                                 </div>
                             </div>
 
+                            {modalError && (
+                                <div className="mb-10 p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-4 text-red-500 font-black text-xs uppercase tracking-widest animate-shake">
+                                    <AlertTriangle size={20} />
+                                    <span>{modalError}</span>
+                                </div>
+                            )}
+
                             <form className="space-y-10" onSubmit={async (e) => {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
@@ -686,13 +706,14 @@ export default function AdminPage() {
                                     const data = await res.json();
                                     if (res.ok) {
                                         setIsUserModalOpen(false);
+                                        setModalError(null);
                                         setActiveTab('users');
                                         await fetchAdminData();
                                     } else {
-                                        alert("FALHA: " + data.error);
+                                        setModalError(data.error);
                                     }
                                 } catch (err) {
-                                    alert("ERRO DE CONEXÃO");
+                                    setModalError("ERRO DE CONEXÃO COM O SERVIDOR");
                                 } finally {
                                     setIsCreatingUser(false);
                                 }
