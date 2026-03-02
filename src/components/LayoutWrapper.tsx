@@ -10,12 +10,14 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const [checking, setChecking] = useState(true);
+
+    // Auth page and THE PIN ENTRY SCREEN of admin should not show sidebar
     const isAuthPage = pathname === '/auth';
+    const isAdminPinScreen = pathname === '/admin';
+    const hideSidebar = isAuthPage || isAdminPinScreen;
 
     useEffect(() => {
         async function checkUser() {
-            // Admin page is exempt from global auth check so it can handle its own PIN security.
-            // Auth page is obviously exempt.
             const isAdminPage = pathname.startsWith('/admin');
 
             if (isAuthPage || isAdminPage) {
@@ -34,8 +36,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
         checkUser();
     }, [pathname, isAuthPage, router]);
 
-    // Simple loading screen
-    if (checking && !isAuthPage) {
+    if (checking && !isAuthPage && !isAdminPinScreen) {
         return (
             <div className="h-screen bg-[#0a0a0a] flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -48,17 +49,16 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex h-screen bg-[#0a0a0a]">
-            {!isAuthPage && <Sidebar />}
+            {!hideSidebar && <Sidebar />}
             <main className={cn(
                 "flex-1 p-8 overflow-y-auto transition-all duration-500 min-h-screen relative",
-                !isAuthPage ? "ml-64" : "ml-0"
+                !hideSidebar ? "ml-64" : "ml-0"
             )}>
                 <div className="max-w-7xl mx-auto space-y-12 pb-20">
                     {children}
                 </div>
 
-                {/* Universal Footer for Logged In Pages */}
-                {!isAuthPage && (
+                {!hideSidebar && (
                     <div className="mt-20 py-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-black tracking-[0.3em] uppercase opacity-30 italic">
                         <div className="flex gap-8">
                             <span>Protocolo Axon-301</span>

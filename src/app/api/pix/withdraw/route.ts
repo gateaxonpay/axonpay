@@ -3,7 +3,7 @@ import { getServerSupabase } from '@/lib/supabase';
 import Decimal from 'decimal.js';
 
 const MYCASH_WITHDRAW_URL = 'https://mycash.cc/api/v1/withdraw';
-const MYCASH_API_KEY = process.env.MYCASH_API_KEY || 'sk_live_eVksnZZG4sfrr2eupd9JhGJjc3Qarq0c';
+const MYCASH_API_KEY = process.env.MYCASH_API_KEY || '';
 
 export async function POST(req: Request) {
     try {

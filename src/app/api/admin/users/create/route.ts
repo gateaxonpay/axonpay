@@ -11,6 +11,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "E-mail e senha são obrigatórios" }, { status: 400 });
         }
 
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+        if (!serviceKey || serviceKey.includes('your-service-role-key')) {
+            return NextResponse.json({
+                error: "Configuração incompleta: O 'SUPABASE_SERVICE_ROLE_KEY' não foi configurado nas variáveis de ambiente da Vercel."
+            }, { status: 500 });
+        }
+
         const supabase = getServerSupabase();
 
         // 1. Create the user in Auth

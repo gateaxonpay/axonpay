@@ -5,7 +5,7 @@ export async function GET(req: Request) {
     try {
         const supabase = getServerSupabase();
 
-        // Buscar todas as transações sem RLS (usando service role)
+        // 1. Fetch all transactions (no RLS)
         const { data: txs, error: txsError } = await supabase
             .from('transactions')
             .select('*')
@@ -13,7 +13,14 @@ export async function GET(req: Request) {
 
         if (txsError) throw txsError;
 
-        // Calcular estatísticas simples
+        // 2. Fetch all users to map them in the report
+        const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('*');
+
+        if (profilesError) throw profilesError;
+
+        // 3. Simple aggregate stats
         const totalPaid = txs
             .filter((t: any) => t.status === 'completed' && t.type === 'deposit')
             .reduce((sum: number, t: any) => sum + Number(t.amount_original), 0);
@@ -22,8 +29,29 @@ export async function GET(req: Request) {
             .filter((t: any) => t.type === 'deposit')
             .reduce((sum: number, t: any) => sum + Number(t.amount_original), 0);
 
+        // 4. Per-user metrics
+        const userMetrics = profiles.map(profile => {
+            const userTxs = txs.filter(t => t.user_id === profile.id);
+            const userGenerated = userTxs
+                .filter(t => t.type === 'deposit')
+                .reduce((sum, t) => sum + Number(t.amount_original), 0);
+            const userPaid = userTxs
+                .filter(t => t.status === 'completed' && t.type === 'deposit')
+                .reduce((sum, t) => sum + Number(t.amount_original), 0);
+
+            return {
+                id: profile.id,
+                email: profile.email,
+                balance: profile.balance,
+                totalGenerated: userGenerated,
+                totalPaid: userPaid,
+                txCount: userTxs.length
+            };
+        }).sort((a, b) => b.totalGenerated - a.totalGenerated);
+
         return NextResponse.json({
             transactions: txs,
+            userMetrics,
             stats: {
                 totalPaid,
                 totalGenerated
