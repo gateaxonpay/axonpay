@@ -412,7 +412,7 @@ export default function AdminPage() {
                                                 <div className="flex items-center gap-6">
                                                     <div className={cn(
                                                         "w-14 h-14 rounded-2xl flex items-center justify-center border",
-                                                        activity.type === 'deposit' ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-red-500/10 border-red-500/20 text-red-400"
+                                                        activity.type === 'deposit' ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-green-500/10 border-green-500/20 text-green-400"
                                                     )}>
                                                         {activity.type === 'deposit' ? <ArrowUpCircle size={26} /> : <ArrowDownCircle size={26} />}
                                                     </div>

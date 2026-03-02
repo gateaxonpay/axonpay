@@ -46,10 +46,15 @@ export async function GET(
             }
         }
 
-        // 3. Call MyCash status API
-        console.log('[STATUS] Calling MyCash API: https://mycash.cc/api/v1/pix/status/' + externalId);
+        // 3. Call MyCash status API (Check if it's deposit or withdraw)
+        const isWithdraw = localTx?.type === 'withdraw';
+        const statusUrl = isWithdraw
+            ? `https://mycash.cc/api/v1/withdraw/status/${externalId}`
+            : `https://mycash.cc/api/v1/pix/status/${externalId}`;
+
+        console.log(`[STATUS] Calling MyCash API (${localTx?.type || 'unknown'}):`, statusUrl);
         const mycashRes = await fetch(
-            `https://mycash.cc/api/v1/pix/status/${externalId}`,
+            statusUrl,
             {
                 method: 'GET',
                 headers: {
@@ -70,7 +75,7 @@ export async function GET(
         }
 
         const remoteStatus = mycashData.status;
-        const isFinal = mycashData.is_final || remoteStatus === 'completed' || remoteStatus === 'cancelled';
+        const isFinal = mycashData.is_final || remoteStatus === 'completed' || remoteStatus === 'cancelled' || remoteStatus === 'failed';
 
         // 4. Update local transaction status if changed
         if (localTx && localTx.status !== remoteStatus) {

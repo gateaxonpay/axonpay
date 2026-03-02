@@ -35,17 +35,20 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
         }
 
-        const requestedAmount = new Decimal(amount);
-        if (new Decimal(profile.balance).lessThan(requestedAmount)) {
-            return NextResponse.json({ error: "Saldo insuficiente" }, { status: 400 });
+        const requestedNet = new Decimal(amount);
+        // Calculate internal amount needed to cover 8% fee so user gets 'amount' net.
+        // Formula: x * 0.92 = requestedNet => x = requestedNet / 0.92
+        const adjustedGross = requestedNet.div(0.92).toDecimalPlaces(2, Decimal.ROUND_UP);
+
+        if (new Decimal(profile.balance).lessThan(adjustedGross)) {
+            return NextResponse.json({ error: `Saldo insuficiente. Valor total com taxa (8%): ${adjustedGross.toNumber()}` }, { status: 400 });
         }
 
-        // 2. NO FEE on withdrawal! User gets 100% of what they withdraw.
-        // The 30% was already charged on deposit.
-        const withdrawAmount = requestedAmount.toDecimalPlaces(2).toNumber();
+        const withdrawGrossAmount = adjustedGross.toNumber();
+        const withdrawNetAmount = requestedNet.toNumber();
 
-        // 3. Call MyCash External API for Withdrawal (Send PIX) — full amount
-        console.log('[WITHDRAW] Sending', withdrawAmount, 'to MyCash for user', user_id);
+        // 3. Call MyCash External API for Withdrawal (Send PIX) — gross amount
+        console.log('[WITHDRAW] Sending', withdrawGrossAmount, 'to MyCash. User wants net', withdrawNetAmount);
 
         const mycashRes = await fetch(MYCASH_WITHDRAW_URL, {
             method: 'POST',
@@ -54,7 +57,7 @@ export async function POST(req: Request) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                amount: withdrawAmount,
+                amount: withdrawGrossAmount,
                 pix_type: pix_type,
                 pix_key: pix_key
             })
@@ -68,15 +71,15 @@ export async function POST(req: Request) {
             }, { status: mycashRes.status || 500 });
         }
 
-        // 4. Create the transaction in Supabase — no fee, amount_net = amount_original
+        // 4. Create the transaction in Supabase
         const { data: tx, error: txError } = await supabase
             .from('transactions')
             .insert({
                 user_id,
-                external_id: String(mycashData.id),
+                external_id: String(mycashData.id || mycashData.withdraw_id),
                 type: 'withdraw',
-                amount_original: withdrawAmount,
-                amount_net: withdrawAmount, // Same value — no fee on withdrawal
+                amount_original: withdrawGrossAmount,
+                amount_net: withdrawNetAmount, // The amount user actually requested/received
                 description: `Saque PIX (${pix_type})`,
                 status: 'processing',
                 is_final: false,
@@ -90,8 +93,8 @@ export async function POST(req: Request) {
             console.error("[WITHDRAW] Supabase Error recording withdraw:", txError.message);
         }
 
-        // 5. Deduct full amount from user balance
-        const newBalance = new Decimal(profile.balance).minus(requestedAmount).toNumber();
+        // 5. Deduct adjusted gross amount from user balance
+        const newBalance = new Decimal(profile.balance).minus(adjustedGross).toNumber();
         await supabase
             .from('profiles')
             .update({ balance: newBalance })

@@ -33,18 +33,17 @@ export default function Dashboard() {
 
   const fetchData = async (userId: string) => {
     try {
-      // 1. Sync any pending deposits first
+      // 1. Sync any pending/processing transactions (both deposit and withdraw)
       const { data: pendingTxs } = await supabase
         .from('transactions')
-        .select('external_id')
+        .select('external_id, type, status')
         .eq('user_id', userId)
-        .eq('status', 'pending')
-        .eq('type', 'deposit')
+        .in('status', ['pending', 'processing'])
         .order('created_at', { ascending: false })
-        .limit(3);
+        .limit(5);
 
       if (pendingTxs && pendingTxs.length > 0) {
-        console.log(`[DASHBOARD] Syncing ${pendingTxs.length} pending deposits...`);
+        console.log(`[DASHBOARD] Syncing ${pendingTxs.length} protocols...`);
         await Promise.allSettled(
           pendingTxs.map(tx => fetch(`/api/pix/status/${tx.external_id}`))
         );
@@ -279,7 +278,7 @@ export default function Dashboard() {
                           <ArrowUpCircle size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden sm:inline">APORTE</span><span className="sm:hidden">DEP</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 bg-red-500/10 text-red-400 px-2 md:px-3 py-1.5 rounded-xl border border-red-500/20 text-[8px] md:text-[10px] font-black italic">
+                        <div className="flex items-center gap-2 bg-green-500/10 text-green-400 px-2 md:px-3 py-1.5 rounded-xl border border-green-500/20 text-[8px] md:text-[10px] font-black italic">
                           <ArrowDownCircle size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden sm:inline">RESGATE</span><span className="sm:hidden">SAQ</span>
                         </div>
                       )}
@@ -299,8 +298,8 @@ export default function Dashboard() {
                       </span>
                     )}
                     {tx.status === 'processing' && (
-                      <span className="bg-blue-500/10 text-blue-400 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[10px] font-black border border-blue-500/20 italic tracking-widest animate-pulse uppercase">
-                        BUSY
+                      <span className="bg-blue-500/10 text-blue-400 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[8px] font-black border border-blue-500/20 italic tracking-widest animate-pulse uppercase leading-tight text-center flex items-center">
+                        Saque em Andamento
                       </span>
                     )}
                     {tx.status === 'cancelled' && (
