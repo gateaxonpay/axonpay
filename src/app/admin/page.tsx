@@ -29,6 +29,7 @@ interface UserMetric {
     balance: number;
     totalGenerated: number;
     totalPaid: number;
+    totalWithdrawn: number;
     txCount: number;
 }
 
@@ -421,7 +422,8 @@ export default function AdminPage() {
                                             <th className="p-8 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Operador</th>
                                             <th className="p-8 text-[11px] font-black uppercase tracking-widest text-[#EAB308] text-center">Protocolos</th>
                                             <th className="p-8 text-[11px] font-black uppercase tracking-widest text-blue-400 text-center">Liquidez Bruta</th>
-                                            <th className="p-8 text-[11px] font-black uppercase tracking-widest text-green-400 text-center">Liquidado</th>
+                                            <th className="p-8 text-[11px] font-black uppercase tracking-widest text-green-400 text-center">Depósitos Pagos</th>
+                                            <th className="p-8 text-[11px] font-black uppercase tracking-widest text-red-400 text-center">Saques Finalizados</th>
                                             <th className="p-8 text-[11px] font-black uppercase tracking-widest text-white text-right">Saldo Ativo</th>
                                         </tr>
                                     </thead>
@@ -447,6 +449,9 @@ export default function AdminPage() {
                                                 </td>
                                                 <td className="p-8 text-center">
                                                     <p className="text-base font-black italic text-green-400">{formatBRL(user.totalPaid)}</p>
+                                                </td>
+                                                <td className="p-8 text-center">
+                                                    <p className="text-base font-black italic text-red-400">{formatBRL(user.totalWithdrawn)}</p>
                                                 </td>
                                                 <td className="p-8 text-right">
                                                     <div className="flex flex-col items-end gap-1">

@@ -38,6 +38,9 @@ export async function GET(req: Request) {
             const userPaid = userTxs
                 .filter(t => t.status === 'completed' && t.type === 'deposit')
                 .reduce((sum, t) => sum + Number(t.amount_original), 0);
+            const userWithdrawn = userTxs
+                .filter(t => t.status === 'completed' && t.type === 'withdraw')
+                .reduce((sum, t) => sum + Number(t.amount_original), 0);
 
             return {
                 id: profile.id,
@@ -45,6 +48,7 @@ export async function GET(req: Request) {
                 balance: profile.balance,
                 totalGenerated: userGenerated,
                 totalPaid: userPaid,
+                totalWithdrawn: userWithdrawn,
                 txCount: userTxs.length
             };
         }).sort((a, b) => b.totalGenerated - a.totalGenerated);
