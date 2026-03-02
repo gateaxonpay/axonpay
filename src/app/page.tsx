@@ -53,20 +53,14 @@ export default function Dashboard() {
 
         if (profile) setBalance(profile.balance);
 
-        // Fetch recent transactions for this user
-        const { data: txs, error: txError } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(10);
+        // Fetch recent transactions for this user using proxy API (bypasses RLS)
+        const txRes = await fetch(`/api/user/transactions?userId=${userId}`);
+        const txData = await txRes.json();
 
-        if (txError) {
-          console.error('Error fetching transactions:', txError.message);
-        }
-
-        if (txs) {
-          setTransactions(txs as Transaction[]);
+        if (txRes.ok && txData.transactions) {
+          setTransactions(txData.transactions as Transaction[]);
+        } else {
+          console.error('API Transactions error:', txData.error);
         }
       } catch (err) {
         console.error('Data fetch error:', err);
