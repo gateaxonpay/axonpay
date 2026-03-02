@@ -45,7 +45,22 @@ export default function DepositPage() {
     const [isChecking, setIsChecking] = useState(false);
     const [penaltySeconds, setPenaltySeconds] = useState(0);
     const [penaltyMessage, setPenaltyMessage] = useState(false);
+    const [recentTxs, setRecentTxs] = useState<any[]>([]);
+    const [isLoadingTxs, setIsLoadingTxs] = useState(true);
     const router = useRouter();
+
+    const fetchRecentTxs = async (uid: string) => {
+        setIsLoadingTxs(true);
+        try {
+            const res = await fetch(`/api/user/transactions?userId=${uid}`);
+            const data = await res.json();
+            if (data.transactions) setRecentTxs(data.transactions);
+        } catch (e) {
+            console.error('Error fetching txs:', e);
+        } finally {
+            setIsLoadingTxs(false);
+        }
+    };
 
     const parsedAmount = parseFloat(amount) || 0;
     const netAmount = parsedAmount > 0
@@ -61,7 +76,9 @@ export default function DepositPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 window.location.href = '/auth';
+                return;
             }
+            fetchRecentTxs(user.id);
         }
         checkAuth();
     }, []);
@@ -178,6 +195,9 @@ export default function DepositPage() {
             }
 
             setTransaction(data as PixTransaction);
+            // Refresh recent transactions list
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser) fetchRecentTxs(currentUser.id);
         } catch (err: any) {
             setError(err.message || 'Erro ao gerar o PIX. Tente novamente.');
         } finally {
@@ -508,6 +528,70 @@ export default function DepositPage() {
                             </motion.div>
                         )}
                     </AnimatePresence>
+                </div>
+            </div>
+
+            {/* RECENT TRANSACTIONS / FLOW */}
+            <div className="mt-20 space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-xl font-black italic uppercase tracking-tighter">Fluxo de Protocolos Recentes</h2>
+                        <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60">Últimos 5 depósitos registrados</p>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            const { data: { user } } = await supabase.auth.getUser();
+                            if (user) fetchRecentTxs(user.id);
+                        }}
+                        className="p-2 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-all"
+                    >
+                        <RefreshCcw size={16} className={isLoadingTxs ? "animate-spin text-primary" : "text-muted-foreground"} />
+                    </button>
+                </div>
+
+                <div className="glass-card rounded-[40px] overflow-hidden border-white/5 shadow-2xl">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-white/5 bg-white/[0.01]">
+                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">ID Protocolo</th>
+                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Status</th>
+                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 text-right">Valor Líquido</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {isLoadingTxs ? (
+                                    <tr>
+                                        <td colSpan={3} className="px-8 py-10 text-center animate-pulse">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">Sincronizando...</p>
+                                        </td>
+                                    </tr>
+                                ) : recentTxs.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={3} className="px-8 py-10 text-center">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">Nenhum protocolo detectado.</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    recentTxs.filter(t => t.type === 'deposit').slice(0, 5).map((tx) => (
+                                        <tr key={tx.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                                            <td className="px-8 py-5 font-mono text-[10px] text-muted-foreground/60 group-hover:text-white transition-colors">#{tx.id.slice(0, 10)}...</td>
+                                            <td className="px-8 py-5">
+                                                {tx.status === 'completed' ? (
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-green-500 bg-green-500/10 px-3 py-1 rounded-lg border border-green-500/20">Pago</span>
+                                                ) : tx.status === 'pending' ? (
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-yellow-500 bg-yellow-500/10 px-3 py-1 rounded-lg border border-yellow-500/20">Pendente</span>
+                                                ) : (
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20">Abortado</span>
+                                                )}
+                                            </td>
+                                            <td className="px-8 py-5 text-right font-black italic text-sm text-white">{formatBRL(tx.amount_net)}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
