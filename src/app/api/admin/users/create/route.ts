@@ -26,7 +26,8 @@ export async function POST(req: Request) {
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
             email,
             password,
-            email_confirm: true // Auto confirm
+            email_confirm: true,
+            user_metadata: { full_name: name } // Salvando o nome no meta-dado do usuário
         });
 
         if (authError) throw authError;
@@ -38,7 +39,6 @@ export async function POST(req: Request) {
             .from('profiles')
             .upsert({
                 id: authData.user.id,
-                full_name: name,
                 balance: 0
             }, { onConflict: 'id' });
 

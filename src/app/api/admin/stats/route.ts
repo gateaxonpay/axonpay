@@ -43,7 +43,7 @@ export async function GET(req: Request) {
                 id: au.id,
                 email: au.email || 'N/A',
                 balance: profile?.balance || 0,
-                full_name: profile?.full_name || au.email?.split('@')[0] || 'N/A'
+                full_name: au.user_metadata?.full_name || profile?.full_name || au.email?.split('@')[0] || 'N/A'
                 // Any other profile data
             };
         });
