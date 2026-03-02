@@ -14,13 +14,19 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         async function checkUser() {
-            // Admin page authentication is handled separately via PIN but still needs a supabase user.
+            // Admin page is exempt from global auth check so it can handle its own PIN security.
+            // Auth page is obviously exempt.
+            const isAdminPage = pathname.startsWith('/admin');
+
+            if (isAuthPage || isAdminPage) {
+                setChecking(false);
+                return;
+            }
+
             const { data: { user } } = await supabase.auth.getUser();
 
-            if (!user && !isAuthPage) {
+            if (!user) {
                 router.push('/auth');
-            } else if (user && isAuthPage) {
-                router.push('/');
             } else {
                 setChecking(false);
             }

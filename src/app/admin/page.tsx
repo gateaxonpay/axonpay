@@ -33,16 +33,6 @@ export default function AdminPage() {
 
     const correctPin = '171033';
 
-    useEffect(() => {
-        async function checkAuth() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                window.location.href = '/auth';
-            }
-        }
-        checkAuth();
-    }, []);
-
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         if (pin === correctPin) {
