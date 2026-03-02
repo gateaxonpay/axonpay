@@ -61,7 +61,44 @@ export default function PixKeyPage() {
                 return;
             }
             setUserId(user.id);
-            await fetchSavedKeys(user.id);
+
+            // 1. Fetch current saved keys
+            const { data: keys } = await supabase
+                .from('user_pix_keys')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (keys && keys.length > 0) {
+                setSavedKeys(keys);
+            } else {
+                // 2. Migration Logic: If no keys in the new table, check the legacy profile table
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('pix_key, pix_type')
+                    .eq('id', user.id)
+                    .single();
+
+                if (profile?.pix_key) {
+                    // Auto-migrate legacy key to new table
+                    const { data: newKey, error: migrateError } = await supabase
+                        .from('user_pix_keys')
+                        .insert({
+                            user_id: user.id,
+                            pix_type: profile.pix_type || 'CPF',
+                            pix_key: profile.pix_key
+                        })
+                        .select()
+                        .single();
+
+                    if (!migrateError && newKey) {
+                        setSavedKeys([newKey]);
+                        // Clean up legacy key to avoid re-migration
+                        await supabase.from('profiles').update({ pix_key: null, pix_type: null }).eq('id', user.id);
+                    }
+                }
+            }
+
             setIsLoading(false);
         }
         loadData();
