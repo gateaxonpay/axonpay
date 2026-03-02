@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
         if (profileError) {
             console.error("Profile creation error:", profileError);
-            // Don't fail the whole user creation if just profile failed, but it's important.
+            throw new Error("Erro ao criar perfil do operador no banco de dados.");
         }
 
         return NextResponse.json({

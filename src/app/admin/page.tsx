@@ -69,8 +69,12 @@ export default function AdminPage() {
     };
 
     const fetchAdminData = async () => {
+        setIsLoading(true);
         try {
-            const res = await fetch('/api/admin/stats');
+            const res = await fetch(`/api/admin/stats?t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache' }
+            });
             const data = await res.json();
 
             if (res.ok) {
@@ -454,15 +458,25 @@ export default function AdminPage() {
                                 <Users size={32} className="text-[#EAB308]" />
                                 <h3 className="text-3xl font-black italic uppercase tracking-tighter">Relatório de Operadores</h3>
                             </div>
-                            <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                                <input
-                                    type="text"
-                                    placeholder="Localizar Operador..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 outline-none focus:border-primary/50 transition-all text-sm font-bold w-80"
-                                />
+                            <div className="flex items-center gap-6">
+                                <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Localizar Operador..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 outline-none focus:border-primary/50 transition-all text-sm font-bold w-80"
+                                    />
+                                </div>
+                                <button
+                                    onClick={fetchAdminData}
+                                    disabled={isLoading}
+                                    className="h-14 px-8 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-2xl flex items-center gap-3 transition-all active:scale-95 text-blue-400 group"
+                                >
+                                    <Activity size={18} className={cn(isLoading && "animate-spin")} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Sincronizar Cluster</span>
+                                </button>
                             </div>
                         </div>
 
