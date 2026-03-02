@@ -64,7 +64,7 @@ export async function GET(
         );
 
         const mycashData = await mycashRes.json();
-        console.log('[STATUS] MyCash response:', JSON.stringify(mycashData));
+        console.log('[STATUS] MyCash RAW response:', JSON.stringify(mycashData));
 
         if (!mycashRes.ok) {
             console.error('[STATUS] MyCash API error:', mycashRes.status, mycashData);
@@ -74,7 +74,34 @@ export async function GET(
             );
         }
 
-        const remoteStatus = mycashData.status;
+        // Normalize MyCash status — they may return different strings for withdrawals vs deposits
+        const rawStatus = (mycashData.status || '').toLowerCase().trim();
+
+        // Map known MyCash status variants to our internal statuses
+        const normalizeStatus = (status: string, txType: string): string => {
+            // Completed variants
+            if (['completed', 'paid', 'done', 'approved', 'success', 'settled', 'confirmed'].includes(status)) {
+                return 'completed';
+            }
+            // Failed variants
+            if (['cancelled', 'canceled', 'failed', 'rejected', 'declined', 'error', 'expired'].includes(status)) {
+                return status === 'expired' ? 'cancelled' : 'failed';
+            }
+            // Processing variants
+            if (['processing', 'busy', 'in_progress', 'sending', 'queued'].includes(status)) {
+                return 'processing';
+            }
+            // Pending variants
+            if (['pending', 'waiting', 'awaiting', 'created'].includes(status)) {
+                return 'pending';
+            }
+            // Return as-is if unknown
+            return status;
+        };
+
+        const remoteStatus = normalizeStatus(rawStatus, localTx?.type || 'deposit');
+        console.log('[STATUS] Normalized status:', rawStatus, '->', remoteStatus);
+
         const isFinal = mycashData.is_final || remoteStatus === 'completed' || remoteStatus === 'cancelled' || remoteStatus === 'failed';
 
         // 4. Update local transaction status if changed
