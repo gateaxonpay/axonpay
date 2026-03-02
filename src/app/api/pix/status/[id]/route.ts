@@ -46,11 +46,8 @@ export async function GET(
             }
         }
 
-        // 3. Call MyCash status API (Check if it's deposit or withdraw)
-        const isWithdraw = localTx?.type === 'withdraw';
-        const statusUrl = isWithdraw
-            ? `https://mycash.cc/api/v1/withdraw/status/${externalId}`
-            : `https://mycash.cc/api/v1/pix/status/${externalId}`;
+        // 3. Call MyCash status API (same endpoint for deposit AND withdraw per their docs)
+        const statusUrl = `https://mycash.cc/api/v1/pix/status/${externalId}`;
 
         console.log(`[STATUS] Calling MyCash API (${localTx?.type || 'unknown'}):`, statusUrl);
         const mycashRes = await fetch(
