@@ -36,7 +36,6 @@ export default function WithdrawPage() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [lockUntil, setLockUntil] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -47,16 +46,15 @@ export default function WithdrawPage() {
                 return;
             }
 
-            // Fetch balance & lock status
+            // Fetch balance
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('balance, withdraw_lock_until')
+                .select('balance')
                 .eq('id', user.id)
                 .single();
 
             if (profile) {
                 setBalance(profile.balance || 0);
-                setLockUntil(profile.withdraw_lock_until);
             }
 
             // Fetch saved keys
@@ -80,8 +78,9 @@ export default function WithdrawPage() {
     }, []);
 
     const requestedValue = parseFloat(amount) || 0;
-    const netValue = requestedValue > 0 ? (requestedValue * 0.7) : 0;
-    const feeValue = requestedValue > 0 ? (requestedValue * 0.3) : 0;
+    // No fee on withdrawal — 30% was already charged on deposit
+    const netValue = requestedValue;
+    const feeValue = 0;
 
     const handleWithdraw = async () => {
         if (!amount || requestedValue <= 0) {
@@ -140,14 +139,14 @@ export default function WithdrawPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto pb-20">
-            <div className="flex items-center gap-4 mb-10">
+        <div className="max-w-4xl mx-auto pb-20 px-4 md:px-0">
+            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 mb-10 text-center md:text-left">
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl shadow-2xl shadow-red-900/10">
                     <ArrowDownCircle className="text-red-400" size={28} />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight text-white uppercase italic">Resgate de Saldo</h1>
-                    <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Protocolo de Saque Prioritário</p>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white uppercase italic">Resgate de Saldo</h1>
+                    <p className="text-muted-foreground text-[10px] md:text-sm uppercase tracking-widest font-bold">Protocolo de Saque Prioritário</p>
                 </div>
             </div>
 
@@ -159,7 +158,7 @@ export default function WithdrawPage() {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, scale: 0.9 }}
-                                className="glass-card p-10 rounded-[40px] border-white/5 space-y-8"
+                                className="glass-card p-6 md:p-10 rounded-[30px] md:rounded-[40px] border-white/5 space-y-8"
                             >
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-2 gap-4">
@@ -180,7 +179,7 @@ export default function WithdrawPage() {
                                     <div className="space-y-4">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-[#EAB308] ml-2">Total a Deduzir (R$)</label>
                                         <div className="relative group">
-                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">R$</span>
+                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xl md:text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">R$</span>
                                             <input
                                                 type="number"
                                                 value={amount}
@@ -189,13 +188,13 @@ export default function WithdrawPage() {
                                                     setError(null);
                                                 }}
                                                 placeholder="0,00"
-                                                className="w-full h-20 bg-white/5 border border-white/10 rounded-[28px] pl-16 pr-24 text-3xl font-black outline-none focus:border-red-500/50 focus:bg-white/10 transition-all font-mono shadow-inner"
+                                                className="w-full h-16 md:h-20 bg-white/5 border border-white/10 rounded-[20px] md:rounded-[28px] pl-14 md:pl-16 pr-20 md:pr-24 text-2xl md:text-3xl font-black outline-none focus:border-red-500/50 focus:bg-white/10 transition-all font-mono shadow-inner"
                                             />
                                             <button
                                                 onClick={() => setAmount(balance.toString())}
-                                                className="absolute right-6 top-1/2 -translate-y-1/2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all text-white/50 hover:text-white"
+                                                className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 px-3 md:px-4 py-1.5 md:py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[8px] md:text-xs font-bold uppercase tracking-widest transition-all text-white/50 hover:text-white"
                                             >
-                                                Máximo
+                                                MÁX
                                             </button>
                                         </div>
                                     </div>
@@ -252,29 +251,18 @@ export default function WithdrawPage() {
                                     <div className="p-6 bg-white/[0.03] rounded-3xl border border-white/5 space-y-4 shadow-inner">
                                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                                             <span className="flex items-center gap-2">
-                                                <Info size={12} /> Taxa de Liquidação (30%)
+                                                <Info size={12} /> Taxa de Saque
                                             </span>
-                                            <span className="text-red-400">-{formatBRL(feeValue)}</span>
+                                            <span className="text-green-400">ISENTO (0%)</span>
                                         </div>
                                         <div className="h-px bg-white/5" />
                                         <div className="flex justify-between items-center">
-                                            <span className="text-xs font-black uppercase tracking-widest text-[#EAB308]">Crédito em Conta (70%)</span>
+                                            <span className="text-xs font-black uppercase tracking-widest text-[#EAB308]">Valor a Receber (100%)</span>
                                             <span className="text-2xl font-black text-white">{formatBRL(netValue)}</span>
                                         </div>
                                     </div>
 
-                                    {lockUntil && new Date() < new Date(lockUntil) && (
-                                        <div className="p-6 bg-yellow-500/10 border border-yellow-500/20 rounded-3xl space-y-3 shadow-xl">
-                                            <div className="flex items-center gap-3 text-yellow-500 font-black text-xs uppercase tracking-[0.2em] italic">
-                                                <AlertTriangle size={20} /> ALERTA DE CONFORMIDADE
-                                            </div>
-                                            <p className="text-[10px] text-white/60 font-black uppercase tracking-widest leading-relaxed">
-                                                Saque bloqueado temporariamente (Restam {Math.ceil((new Date(lockUntil).getTime() - new Date().getTime()) / 60000)} min).
-                                                O sistema detectou comportamento suspeito de <span className="text-yellow-500">lavagem de dinheiro</span>.
-                                                Aguarde a análise de liquidez antes de liberar o resgate.
-                                            </p>
-                                        </div>
-                                    )}
+
 
                                     {error && (
                                         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 font-bold text-xs uppercase tracking-widest shadow-lg shadow-red-900/10">
@@ -285,8 +273,8 @@ export default function WithdrawPage() {
 
                                     <button
                                         onClick={handleWithdraw}
-                                        disabled={isProcessing || !amount || requestedValue <= 0 || requestedValue > balance || (!!lockUntil && new Date() < new Date(lockUntil))}
-                                        className="w-full h-20 bg-gradient-to-r from-red-600 to-orange-600 rounded-[28px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all shadow-2xl shadow-red-900/30 disabled:opacity-30 disabled:grayscale"
+                                        disabled={isProcessing || !amount || requestedValue <= 0 || requestedValue > balance}
+                                        className="w-full h-16 md:h-20 bg-gradient-to-r from-red-600 to-orange-600 rounded-[24px] md:rounded-[28px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all shadow-2xl shadow-red-900/30 disabled:opacity-30 disabled:grayscale text-sm md:text-base"
                                     >
                                         {isProcessing ? (
                                             <Loader2 size={24} className="animate-spin" />
@@ -309,14 +297,14 @@ export default function WithdrawPage() {
                                     <CheckCircle2 size={64} className="animate-bounce" />
                                 </div>
                                 <div className="space-y-4">
-                                    <h2 className="text-4xl font-black italic tracking-tighter uppercase">Transferência Solicitada</h2>
-                                    <p className="text-muted-foreground text-lg max-w-[320px] mx-auto leading-relaxed">
-                                        Liquidação de <span className="text-white font-bold">{formatBRL(netValue)}</span> enviada com prioridade para <span className="text-white font-mono">{pixKey}</span>.
+                                    <h2 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase">Transferência Solicitada</h2>
+                                    <p className="text-muted-foreground text-base md:text-lg max-w-[320px] mx-auto leading-relaxed">
+                                        Liquidação de <span className="text-white font-bold">{formatBRL(netValue)}</span> enviada com prioridade para <span className="text-white font-mono break-all">{pixKey}</span>.
                                     </p>
                                 </div>
 
-                                <div className="w-full p-8 bg-white/5 rounded-3xl border border-white/5 space-y-4 max-w-sm">
-                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                <div className="w-full p-6 md:p-8 bg-white/5 rounded-3xl border border-white/5 space-y-4 max-w-sm">
+                                    <div className="flex justify-between items-center text-[9px] md:text-[10px] font-black uppercase tracking-widest">
                                         <span className="text-muted-foreground">Status do Protocolo</span>
                                         <span className="text-blue-400 flex items-center gap-1">
                                             <RefreshCcw size={10} className="animate-spin" /> EM PROCESSAMENTO
@@ -369,17 +357,17 @@ export default function WithdrawPage() {
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-blue-600/10 to-indigo-600/10 border border-blue-500/20 p-10 rounded-[40px] space-y-6 group">
+                    <div className="bg-gradient-to-br from-blue-600/10 to-indigo-600/10 border border-blue-500/20 p-8 md:p-10 rounded-[30px] md:rounded-[40px] space-y-6 group">
                         <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform shadow-2xl shadow-blue-500/10">
-                                <Send size={24} />
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform shadow-2xl shadow-blue-500/10">
+                                <Send size={20} className="md:w-6 md:h-6" />
                             </div>
                             <div>
-                                <h4 className="font-black text-blue-400 uppercase tracking-widest">Suporte Black</h4>
-                                <p className="text-[10px] text-blue-200/40 uppercase font-bold tracking-widest">Disponível 24/7</p>
+                                <h4 className="font-black text-blue-400 uppercase tracking-widest text-sm md:text-base">Suporte Black</h4>
+                                <p className="text-[9px] md:text-[10px] text-blue-200/40 uppercase font-bold tracking-widest">Disponível 24/7</p>
                             </div>
                         </div>
-                        <p className="text-xs text-blue-200/50 leading-relaxed font-bold italic">Saques acima de R$ 50.000,00 contam com um gerente exclusivo de conta.</p>
+                        <p className="text-[10px] md:text-xs text-blue-200/50 leading-relaxed font-bold italic">Saques acima de R$ 50.000,00 contam com um gerente exclusivo de conta.</p>
                         <button className="w-full h-14 bg-blue-600/20 border border-blue-600/30 rounded-2xl text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-600/30 transition-all">
                             Prioridade VIP Support
                         </button>

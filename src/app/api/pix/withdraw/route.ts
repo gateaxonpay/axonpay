@@ -18,6 +18,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Dados PIX ausentes" }, { status: 400 });
         }
 
+        if (!user_id) {
+            return NextResponse.json({ error: "Usuário não autenticado" }, { status: 401 });
+        }
+
         const supabase = getServerSupabase();
 
         // 1. Fetch user profile
@@ -31,27 +35,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
         }
 
-        // Check if withdrawal is locked
-        if (profile.withdraw_lock_until) {
-            const lockUntil = new Date(profile.withdraw_lock_until);
-            if (new Date() < lockUntil) {
-                const diff = Math.ceil((lockUntil.getTime() - new Date().getTime()) / 60000);
-                return NextResponse.json({
-                    error: `Saque bloqueado temporariamente (Restam ${diff} min). O sistema detectou comportamento suspeito de lavagem de dinheiro. Aguarde a análise de conformidade.`
-                }, { status: 403 });
-            }
-        }
-
         const requestedAmount = new Decimal(amount);
         if (new Decimal(profile.balance).lessThan(requestedAmount)) {
             return NextResponse.json({ error: "Saldo insuficiente" }, { status: 400 });
         }
 
-        // 2. Calculate the "Net Amount" (70% for the user)
-        // The user pays R$ 100,00 from balance, gets R$ 70,00 in bank. 30% is platform profit.
-        const netAmount = requestedAmount.times(0.7).toDecimalPlaces(2).toNumber();
+        // 2. NO FEE on withdrawal! User gets 100% of what they withdraw.
+        // The 30% was already charged on deposit.
+        const withdrawAmount = requestedAmount.toDecimalPlaces(2).toNumber();
 
-        // 3. Call MyCash External API for Withdrawal (Send PIX)
+        // 3. Call MyCash External API for Withdrawal (Send PIX) — full amount
+        console.log('[WITHDRAW] Sending', withdrawAmount, 'to MyCash for user', user_id);
+
         const mycashRes = await fetch(MYCASH_WITHDRAW_URL, {
             method: 'POST',
             headers: {
@@ -59,7 +54,7 @@ export async function POST(req: Request) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                amount: netAmount, // 70% goes to the bank
+                amount: withdrawAmount,
                 pix_type: pix_type,
                 pix_key: pix_key
             })
@@ -73,33 +68,36 @@ export async function POST(req: Request) {
             }, { status: mycashRes.status || 500 });
         }
 
-        // 4. Create the transaction in Supabase
+        // 4. Create the transaction in Supabase — no fee, amount_net = amount_original
         const { data: tx, error: txError } = await supabase
             .from('transactions')
             .insert({
                 user_id,
                 external_id: String(mycashData.id),
                 type: 'withdraw',
-                amount_original: requestedAmount.toNumber(), // 100% deducible
-                amount_net: netAmount, // 70% sent
+                amount_original: withdrawAmount,
+                amount_net: withdrawAmount, // Same value — no fee on withdrawal
                 description: `Saque PIX (${pix_type})`,
                 status: 'processing',
                 is_final: false,
-                pix_copia_e_cola: pix_key // Store the key here for reference
+                pix_copia_e_cola: pix_key,
+                credited: false,
             })
             .select()
             .single();
 
         if (txError) {
-            console.error("Supabase Error recording withdraw:", txError);
+            console.error("[WITHDRAW] Supabase Error recording withdraw:", txError.message);
         }
 
-        // 5. Deduct 100% of the requested amount from user balance
+        // 5. Deduct full amount from user balance
         const newBalance = new Decimal(profile.balance).minus(requestedAmount).toNumber();
         await supabase
             .from('profiles')
             .update({ balance: newBalance })
             .eq('id', user_id);
+
+        console.log('[WITHDRAW] Success! New balance:', newBalance);
 
         return NextResponse.json({
             success: true,
@@ -108,7 +106,7 @@ export async function POST(req: Request) {
         });
 
     } catch (error: any) {
-        console.error("Withdraw API Error:", error);
+        console.error("[WITHDRAW] Fatal Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

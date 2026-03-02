@@ -16,12 +16,7 @@ import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-const NAV_ITEMS = [
-    { label: 'Dash Protocol', icon: LayoutDashboard, href: '/' },
-    { label: 'Aportar PIX', icon: ArrowUpCircle, href: '/deposit' },
-    { label: 'Resgatar PIX', icon: ArrowDownCircle, href: '/withdraw' },
-    { label: 'Chave PIX', icon: Key, href: '/pix-key' },
-];
+import { NAV_ITEMS } from './LayoutWrapper';
 
 export function Sidebar() {
     const pathname = usePathname();

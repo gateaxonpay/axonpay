@@ -18,7 +18,7 @@ import {
 import { cn, formatBRL } from '@/lib/utils';
 import Decimal from 'decimal.js';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface PixTransaction {
     id: string | null;
@@ -47,11 +47,28 @@ export default function DepositPage() {
     const [penaltyMessage, setPenaltyMessage] = useState(false);
     const [recentTxs, setRecentTxs] = useState<any[]>([]);
     const [isLoadingTxs, setIsLoadingTxs] = useState(true);
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const router = useRouter();
 
     const fetchRecentTxs = async (uid: string) => {
         setIsLoadingTxs(true);
         try {
+            // First, sync any pending status by calling our internal API
+            const { data: pendingTxs } = await supabase
+                .from('transactions')
+                .select('external_id')
+                .eq('user_id', uid)
+                .eq('status', 'pending')
+                .eq('type', 'deposit')
+                .limit(3);
+
+            if (pendingTxs && pendingTxs.length > 0) {
+                await Promise.allSettled(
+                    pendingTxs.map(tx => fetch(`/api/pix/status/${tx.external_id}`))
+                );
+            }
+
+            // Now fetch the final transaction list
             const res = await fetch(`/api/user/transactions?userId=${uid}`);
             const data = await res.json();
             if (data.transactions) setRecentTxs(data.transactions);
@@ -69,6 +86,47 @@ export default function DepositPage() {
     const taxAmount = parsedAmount > 0
         ? new Decimal(parsedAmount).times(0.3).toDecimalPlaces(2).toNumber()
         : 0;
+
+    const searchParams = useSearchParams();
+
+    // Query Param loader
+    useEffect(() => {
+        const txId = searchParams.get('txId');
+        if (txId) {
+            async function loadTx() {
+                const { data: tx, error } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('id', txId)
+                    .single();
+
+                if (tx && tx.status === 'pending') {
+                    setTransaction({
+                        id: tx.id,
+                        external_id: tx.external_id,
+                        tx_id: tx.id,
+                        type: tx.type,
+                        amount_original: tx.amount_original,
+                        amount_net: tx.amount_net,
+                        description: tx.description,
+                        status: tx.status,
+                        is_final: tx.is_final,
+                        pix_copia_e_cola: tx.pix_copia_e_cola,
+                        qr_code_url: tx.qr_code_url,
+                        db_saved: true
+                    });
+                    setAmount(tx.amount_original.toString());
+
+                    // Calculate time left based on created_at + 30 mins
+                    const createdAt = new Date(tx.created_at).getTime();
+                    const now = new Date().getTime();
+                    const diffSeconds = Math.max(0, Math.floor((createdAt + (30 * 60 * 1000) - now) / 1000));
+                    setTimeLeft(diffSeconds);
+                }
+            }
+            loadTx();
+        }
+    }, [searchParams]);
 
     // Auth check
     useEffect(() => {
@@ -111,6 +169,29 @@ export default function DepositPage() {
         }
         return false;
     }, [transaction]);
+
+    // Payment validity timer (30 mins)
+    useEffect(() => {
+        if (timeLeft === null || timeLeft <= 0 || !transaction || transaction.status !== 'pending') return;
+
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev !== null && prev <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return prev !== null ? prev - 1 : null;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [timeLeft, transaction]);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
 
     // Penalty countdown timer
     useEffect(() => {
@@ -201,10 +282,13 @@ export default function DepositPage() {
 
             setTransaction(data as PixTransaction);
             // Refresh recent transactions list
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            if (currentUser) fetchRecentTxs(currentUser.id);
+            if (data.transaction) {
+                setTransaction(data.transaction);
+                setTimeLeft(30 * 60); // Reset timer to 30 mins
+                fetchRecentTxs(user.id);
+            }
         } catch (err: any) {
-            setError(err.message || 'Erro ao gerar o PIX. Tente novamente.');
+            setError(err.message || 'Erro ao gerar o pagamento.');
         } finally {
             setIsGenerating(false);
         }
@@ -238,21 +322,21 @@ export default function DepositPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto pb-20">
-            <div className="flex items-center gap-4 mb-10">
+        <div className="max-w-4xl mx-auto pb-20 px-4 md:px-0">
+            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 mb-10 text-center md:text-left">
                 <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
                     <ArrowUpCircle className="text-blue-400" size={28} />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Gerar Depósito PIX</h1>
-                    <p className="text-muted-foreground mt-1">Transações rápidas, seguras e irreversíveis.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Gerar Depósito PIX</h1>
+                    <p className="text-muted-foreground mt-1 text-sm">Transações rápidas, seguras e irreversíveis.</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
                 {/* Left: Form */}
                 <div className="lg:col-span-3 space-y-8">
-                    <div className="glass-card p-10 rounded-3xl space-y-8 relative overflow-hidden group">
+                    <div className="glass-card p-6 md:p-10 rounded-3xl space-y-8 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32" />
 
                         <div className="space-y-6">
@@ -345,7 +429,7 @@ export default function DepositPage() {
                         <AlertTriangle className="text-yellow-500 shrink-0" size={24} />
                         <p className="text-sm text-yellow-200/70 leading-relaxed">
                             <strong>Atenção:</strong> O valor será creditado após a confirmação automática na rede PIX.
-                            O QR Code expira em 60 minutos.
+                            O QR Code expira em 30 minutos.
                         </p>
                     </div>
                 </div>
@@ -359,14 +443,14 @@ export default function DepositPage() {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="h-full min-h-[400px] border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center p-10 text-center space-y-4"
+                                className="h-full min-h-[300px] md:min-h-[400px] border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center p-6 md:p-10 text-center space-y-4"
                             >
-                                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center text-white/20">
-                                    <QrCodeIcon size={40} />
+                                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/5 flex items-center justify-center text-white/20">
+                                    <QrCodeIcon size={32} />
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-xl opacity-40">Aguardando Valor</h3>
-                                    <p className="text-sm text-muted-foreground opacity-30 max-w-[200px] mx-auto">
+                                <div className="px-4">
+                                    <h3 className="font-bold text-lg md:text-xl opacity-40">Aguardando Valor</h3>
+                                    <p className="text-xs md:text-sm text-muted-foreground opacity-30 max-w-[200px] mx-auto">
                                         Insira o valor e clique em gerar para ver o QR Code
                                     </p>
                                 </div>
@@ -421,7 +505,9 @@ export default function DepositPage() {
                                 <div className="text-center space-y-2">
                                     <div className="flex items-center justify-center gap-2 text-yellow-500 mb-2">
                                         <Clock size={16} className="animate-pulse" />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Aguardando Pagamento</span>
+                                        <span className="text-xs font-bold uppercase tracking-widest">
+                                            {timeLeft && timeLeft > 0 ? `Expira em ${formatTime(timeLeft)}` : 'Cobrança Expirada'}
+                                        </span>
                                     </div>
                                     <h3 className="text-2xl font-black">{formatBRL(transaction.amount_original)}</h3>
                                 </div>
@@ -478,17 +564,17 @@ export default function DepositPage() {
                                     <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className="w-full p-5 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-3"
+                                        className="w-full p-4 md:p-5 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-3"
                                     >
-                                        <div className="flex items-center gap-3 text-red-400 font-black text-xs uppercase tracking-widest">
-                                            <Ban size={18} />
+                                        <div className="flex items-center gap-3 text-red-400 font-black text-[10px] md:text-xs uppercase tracking-widest">
+                                            <Ban size={16} />
                                             Pagamento não detectado
                                         </div>
-                                        <p className="text-[11px] text-red-300/60 leading-relaxed">
+                                        <p className="text-[10px] md:text-[11px] text-red-300/60 leading-relaxed">
                                             Protocolo de segurança ativado. Consulta disponível novamente em:
                                         </p>
                                         <div className="text-center">
-                                            <span className="text-4xl font-black text-red-400 font-mono tabular-nums">
+                                            <span className="text-3xl md:text-4xl font-black text-red-400 font-mono tabular-nums">
                                                 {String(Math.floor(penaltySeconds / 60)).padStart(2, '0')}:{String(penaltySeconds % 60).padStart(2, '0')}
                                             </span>
                                         </div>
@@ -581,8 +667,8 @@ export default function DepositPage() {
                                 ) : (
                                     recentTxs.filter(t => t.type === 'deposit').slice(0, 5).map((tx) => (
                                         <tr key={tx.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
-                                            <td className="px-8 py-5 font-mono text-[10px] text-muted-foreground/60 group-hover:text-white transition-colors">#{tx.id.slice(0, 10)}...</td>
-                                            <td className="px-8 py-5">
+                                            <td className="px-4 md:px-8 py-5 font-mono text-[10px] text-muted-foreground/60 group-hover:text-white transition-colors">#{tx.id.slice(0, 10)}...</td>
+                                            <td className="px-4 md:px-8 py-5">
                                                 {tx.status === 'completed' ? (
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-green-500 bg-green-500/10 px-3 py-1 rounded-lg border border-green-500/20">Pago</span>
                                                 ) : tx.status === 'pending' ? (
@@ -591,29 +677,53 @@ export default function DepositPage() {
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20">Abortado</span>
                                                 )}
                                             </td>
-                                            <td className="px-8 py-5 text-right font-black italic text-sm text-white">{formatBRL(tx.amount_net)}</td>
-                                            <td className="px-8 py-5 text-right">
+                                            <td className="px-4 md:px-8 py-5 text-right font-black italic text-sm text-white">{formatBRL(tx.amount_net)}</td>
+                                            <td className="px-4 md:px-8 py-5 text-right flex items-center justify-end gap-2">
                                                 {tx.status === 'pending' && (
-                                                    <button
-                                                        onClick={async () => {
-                                                            try {
-                                                                const res = await fetch(`/api/pix/status/${tx.external_id}`);
-                                                                const data = await res.json();
-                                                                if (data.status === 'completed') {
-                                                                    alert('Pagamento confirmado e saldo atualizado!');
-                                                                    const { data: { user } } = await supabase.auth.getUser();
-                                                                    if (user) fetchRecentTxs(user.id);
-                                                                } else {
-                                                                    alert('Pagamento ainda não detectado.');
+                                                    <>
+                                                        <button
+                                                            onClick={() => {
+                                                                setTransaction({
+                                                                    id: tx.id,
+                                                                    external_id: tx.external_id,
+                                                                    tx_id: tx.id,
+                                                                    type: tx.type,
+                                                                    amount_original: tx.amount_original,
+                                                                    amount_net: tx.amount_net,
+                                                                    description: tx.description,
+                                                                    status: tx.status,
+                                                                    is_final: tx.is_final,
+                                                                    pix_copia_e_cola: tx.pix_copia_e_cola,
+                                                                    qr_code_url: tx.qr_code_url,
+                                                                    db_saved: true
+                                                                });
+                                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                            }}
+                                                            className="p-2 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg text-blue-400 text-[8px] font-black uppercase tracking-widest transition-all"
+                                                        >
+                                                            Abrir
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const res = await fetch(`/api/pix/status/${tx.external_id}`);
+                                                                    const data = await res.json();
+                                                                    if (data.status === 'completed') {
+                                                                        alert('Pagamento confirmado e saldo atualizado!');
+                                                                        const { data: { user } } = await supabase.auth.getUser();
+                                                                        if (user) fetchRecentTxs(user.id);
+                                                                    } else {
+                                                                        alert('Pagamento ainda não detectado.');
+                                                                    }
+                                                                } catch (e) {
+                                                                    alert('Erro ao verificar status.');
                                                                 }
-                                                            } catch (e) {
-                                                                alert('Erro ao verificar status.');
-                                                            }
-                                                        }}
-                                                        className="p-2 bg-primary/10 hover:bg-primary/20 rounded-lg text-primary text-[8px] font-black uppercase tracking-widest transition-all"
-                                                    >
-                                                        Verificar
-                                                    </button>
+                                                            }}
+                                                            className="p-2 bg-primary/10 hover:bg-primary/20 rounded-lg text-primary text-[8px] font-black uppercase tracking-widest transition-all"
+                                                        >
+                                                            Verificar
+                                                        </button>
+                                                    </>
                                                 )}
                                             </td>
                                         </tr>

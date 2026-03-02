@@ -169,14 +169,14 @@ export default function PixKeyPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto pb-20 space-y-10">
-            <div className="flex items-center gap-4">
+        <div className="max-w-4xl mx-auto pb-20 px-4 md:px-0 space-y-10">
+            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 text-center md:text-left">
                 <div className="p-3 bg-[#EAB308]/10 border border-[#EAB308]/20 rounded-2xl shadow-2xl shadow-yellow-900/10">
                     <Key className="text-[#EAB308]" size={28} />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight text-white uppercase italic">Chaves PIX</h1>
-                    <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Gerenciamento de Recebimento</p>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white uppercase italic">Chaves PIX</h1>
+                    <p className="text-muted-foreground text-[10px] md:text-sm uppercase tracking-widest font-bold">Gerenciamento de Recebimento</p>
                 </div>
             </div>
 
@@ -185,7 +185,7 @@ export default function PixKeyPage() {
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="glass-card p-10 rounded-[40px] border-white/5 space-y-8 h-fit"
+                    className="glass-card p-6 md:p-10 rounded-[30px] md:rounded-[40px] border-white/5 space-y-8 h-fit"
                 >
                     <div className="flex items-center gap-3 text-[#EAB308] mb-2 font-black text-xs uppercase tracking-widest">
                         <Plus size={18} />
@@ -234,7 +234,7 @@ export default function PixKeyPage() {
                                     setSuccess(false);
                                 }}
                                 placeholder={activePlaceholder}
-                                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-8 text-sm font-bold outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-mono tracking-widest placeholder:text-white/10"
+                                className="w-full h-14 md:h-16 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-8 text-xs md:text-sm font-bold outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-mono tracking-wider md:tracking-widest placeholder:text-white/10"
                             />
                         </div>
                     </div>
@@ -260,12 +260,12 @@ export default function PixKeyPage() {
                     <button
                         onClick={handleSave}
                         disabled={isSaving || !pixKey.trim()}
-                        className="w-full h-16 gold-gradient rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-30 disabled:hover:scale-100 text-xs"
+                        className="w-full h-14 md:h-16 gold-gradient rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-30 disabled:hover:scale-100 text-[10px] md:text-xs"
                     >
                         {isSaving ? (
-                            <Loader2 size={20} className="animate-spin" />
+                            <Loader2 size={18} className="animate-spin" />
                         ) : (
-                            <Plus size={20} />
+                            <Plus size={18} />
                         )}
                         Cadastrar Chave
                     </button>
@@ -309,21 +309,21 @@ export default function PixKeyPage() {
                                         initial={{ opacity: 0, scale: 0.9 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.9 }}
-                                        className="glass-card p-6 rounded-3xl border-white/5 flex items-center justify-between group hover:border-primary/20 transition-all shadow-xl"
+                                        className="glass-card p-4 md:p-6 rounded-2xl md:rounded-3xl border-white/5 flex items-center justify-between group hover:border-primary/20 transition-all shadow-xl"
                                     >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary shadow-lg">
-                                                <Key size={20} />
+                                        <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary shadow-lg shrink-0">
+                                                <Key size={18} className="md:w-5 md:h-5" />
                                             </div>
-                                            <div>
+                                            <div className="overflow-hidden">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">{k.pix_type}</span>
+                                                    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-primary">{k.pix_type}</span>
                                                     <div className="w-1 h-1 rounded-full bg-white/10" />
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50">
+                                                    <span className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-muted-foreground/50">
                                                         {new Date(k.created_at).toLocaleDateString()}
                                                     </span>
                                                 </div>
-                                                <p className="text-sm font-bold text-white tracking-widest font-mono truncate max-w-[180px]">
+                                                <p className="text-xs md:text-sm font-bold text-white tracking-wider md:tracking-widest font-mono truncate">
                                                     {k.pix_key}
                                                 </p>
                                             </div>
@@ -331,12 +331,12 @@ export default function PixKeyPage() {
                                         <button
                                             onClick={() => handleDelete(k.id)}
                                             disabled={isDeleting === k.id}
-                                            className="p-3 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-xl transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                                            className="p-2 md:p-3 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-xl transition-all md:opacity-0 group-hover:opacity-100 disabled:opacity-50 shrink-0"
                                         >
                                             {isDeleting === k.id ? (
-                                                <Loader2 size={18} className="animate-spin" />
+                                                <Loader2 size={16} className="animate-spin" />
                                             ) : (
-                                                <Trash2 size={18} />
+                                                <Trash2 size={16} />
                                             )}
                                         </button>
                                     </motion.div>
