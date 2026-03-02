@@ -8,7 +8,7 @@ const MYCASH_API_URL = 'https://mycash.cc/api/v1/pix/generate';
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { amount, description, user_id } = body;
+        const { amount, user_id } = body;
         const apiKey = await getMyCashApiKey();
 
         if (!apiKey) {
@@ -45,7 +45,6 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 amount: parsedAmount,
-                description: description || 'Depósito',
             }),
         });
 
@@ -98,7 +97,7 @@ export async function POST(req: Request) {
             type: 'deposit',
             amount_original: parsedAmount,
             amount_net: netAmount,
-            description: description || 'Depósito',
+            description: 'Recarga Axon',
             status: 'pending',
             is_final: false,
             pix_copia_e_cola: pixCode,
@@ -128,7 +127,7 @@ export async function POST(req: Request) {
             type: 'deposit',
             amount_original: parsedAmount,
             amount_net: netAmount,
-            description: description || 'Depósito',
+            description: 'Recarga Axon',
             status: 'pending',
             is_final: false,
             pix_copia_e_cola: pixCode,

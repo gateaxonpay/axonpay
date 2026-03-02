@@ -37,7 +37,6 @@ interface PixTransaction {
 
 export default function DepositPage() {
     const [amount, setAmount] = useState('');
-    const [description, setDescription] = useState('Pagamento');
     const [isGenerating, setIsGenerating] = useState(false);
     const [transaction, setTransaction] = useState<PixTransaction | null>(null);
     const [copySuccess, setCopySuccess] = useState(false);
@@ -269,7 +268,6 @@ export default function DepositPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     amount: parsedAmount,
-                    description: description || 'Depósito',
                     user_id: user.id,
                 }),
             });
@@ -315,7 +313,6 @@ export default function DepositPage() {
     const resetTransaction = () => {
         setTransaction(null);
         setAmount('');
-        setDescription('Pagamento');
         setError(null);
         setPenaltySeconds(0);
         setPenaltyMessage(false);
@@ -365,19 +362,6 @@ export default function DepositPage() {
                                 <p className="text-xs text-muted-foreground ml-2">Mínimo: R$ 20,00</p>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                                    Descrição (Opcional)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Pagamento"
-                                    disabled={!!transaction}
-                                    className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-6 outline-none focus:border-primary/30 transition-all disabled:opacity-50"
-                                />
-                            </div>
 
                             {error && (
                                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm">
