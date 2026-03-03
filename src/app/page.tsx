@@ -335,7 +335,7 @@ export default function Dashboard() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-lg font-bold text-white">{formatBRL(tx.amount_net as any)}</span>
+                <span className="text-lg font-bold text-white">{formatBRL(tx.type === 'deposit' ? tx.amount_original as any : tx.amount_net as any)}</span>
                 <div className="flex items-center gap-2">
                   {tx.status === 'pending' && tx.type === 'deposit' && (
                     <>
