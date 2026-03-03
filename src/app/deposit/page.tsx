@@ -229,18 +229,26 @@ export default function DepositPage() {
         return () => clearInterval(timer);
     }, [penaltySeconds, checkPaymentStatus]);
 
-    // Background polling every 60s (kept as fallback)
+    // Automated Polling every 61s (to safely respect MyCash 60s limit)
+    const [nextCheckIn, setNextCheckIn] = useState(61);
+
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (transaction && !transaction.is_final && penaltySeconds === 0) {
+        if (transaction && !transaction.is_final) {
             interval = setInterval(() => {
-                checkPaymentStatus();
-            }, 60000);
+                setNextCheckIn(prev => {
+                    if (prev <= 1) {
+                        checkPaymentStatus();
+                        return 61;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
         }
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [transaction, penaltySeconds, checkPaymentStatus]);
+    }, [transaction, checkPaymentStatus]);
 
     // "Confirmar Pagamento" button handler
     const handleConfirmPayment = async () => {
@@ -562,61 +570,15 @@ export default function DepositPage() {
                                     </button>
                                 </div>
 
-                                {/* PENALTY COUNTDOWN */}
-                                {penaltyMessage && penaltySeconds > 0 && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="w-full p-4 md:p-5 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-3"
-                                    >
-                                        <div className="flex items-center gap-3 text-red-400 font-black text-[10px] md:text-xs uppercase tracking-widest">
-                                            <Ban size={16} />
-                                            Pagamento não detectado
+                                {transaction.status === 'pending' && (
+                                    <div className="w-full flex flex-col items-center gap-4">
+                                        <div className="flex items-center gap-3 py-2 px-5 bg-white/5 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 shadow-lg">
+                                            <RefreshCcw size={12} className="animate-spin text-primary" />
+                                            Sincronizando em {nextCheckIn}s
                                         </div>
-                                        <p className="text-[10px] md:text-[11px] text-red-300/60 leading-relaxed">
-                                            Protocolo de segurança ativado. Consulta disponível novamente em:
+                                        <p className="text-[10px] text-muted-foreground/40 text-center max-w-[200px]">
+                                            O sistema verifica o pagamento automaticamente a cada minuto.
                                         </p>
-                                        <div className="text-center">
-                                            <span className="text-3xl md:text-4xl font-black text-red-400 font-mono tabular-nums">
-                                                {String(Math.floor(penaltySeconds / 60)).padStart(2, '0')}:{String(penaltySeconds % 60).padStart(2, '0')}
-                                            </span>
-                                        </div>
-                                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: '100%' }}
-                                                animate={{ width: '0%' }}
-                                                transition={{ duration: penaltySeconds, ease: 'linear' }}
-                                                className="h-full bg-red-500/50 rounded-full"
-                                            />
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {/* CONFIRM PAYMENT BUTTON */}
-                                <button
-                                    onClick={handleConfirmPayment}
-                                    disabled={isChecking || penaltySeconds > 0}
-                                    className={cn(
-                                        "w-full h-16 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all text-sm",
-                                        penaltySeconds > 0
-                                            ? "bg-white/5 border border-white/10 text-muted-foreground/30 cursor-not-allowed"
-                                            : "bg-gradient-to-r from-green-600 to-emerald-600 hover:scale-[1.02] active:scale-100 shadow-2xl shadow-green-900/30"
-                                    )}
-                                >
-                                    {isChecking ? (
-                                        <RefreshCcw size={20} className="animate-spin" />
-                                    ) : penaltySeconds > 0 ? (
-                                        <Clock size={20} />
-                                    ) : (
-                                        <ShieldCheck size={20} />
-                                    )}
-                                    {isChecking ? 'Verificando...' : penaltySeconds > 0 ? `Aguarde ${penaltySeconds}s` : 'Confirmar Pagamento'}
-                                </button>
-
-                                {!penaltyMessage && penaltySeconds === 0 && (
-                                    <div className="flex items-center justify-center gap-3 py-1 text-xs text-muted-foreground/40">
-                                        <RefreshCcw size={12} className="animate-spin" />
-                                        Verificação automática a cada 60s
                                     </div>
                                 )}
                             </motion.div>
