@@ -41,8 +41,9 @@ export async function GET(req: Request) {
             const profile = profiles?.find(p => p.id === au.id);
             return {
                 id: au.id,
-                email: au.email?.split('@')[0] || 'N/A', // Oculta o domínio no relatório
+                email: au.email?.split('@')[0] || 'N/A',
                 balance: profile?.balance || 0,
+                tax_rate: profile?.tax_rate ?? 0.30,
                 full_name: au.user_metadata?.full_name || profile?.full_name || au.email?.split('@')[0] || 'N/A'
             };
         });
@@ -74,6 +75,8 @@ export async function GET(req: Request) {
                 email: profile.email,
                 full_name: profile.full_name,
                 balance: profile.balance,
+                tax_rate: profile.tax_rate || 0.30,
+                is_premium: (profile.tax_rate || 0.30) < 0.30,
                 totalGenerated: userGenerated,
                 totalPaid: userPaid,
                 totalWithdrawn: userWithdrawn,

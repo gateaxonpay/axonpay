@@ -34,9 +34,41 @@ export async function POST(req: Request) {
             );
         }
 
-        const netAmount = new Decimal(parsedAmount).times(0.7).toDecimalPlaces(2).toNumber();
+        // 2. Fetch user profile to get their tax_rate
+        const supabase = getServerSupabase();
 
-        // 2. Call MyCash API to generate PIX QR Code
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id, tax_rate')
+            .eq('id', user_id)
+            .single();
+
+        // Determine tax rate: default 0.30 (standard), 0.25 (premium)
+        const taxRate = existingProfile?.tax_rate ?? 0.30;
+        const netMultiplier = new Decimal(1).minus(taxRate);
+        const netAmount = new Decimal(parsedAmount).times(netMultiplier).toDecimalPlaces(2).toNumber();
+
+        console.log(`[GENERATE] User ${user_id} tax_rate=${taxRate}, amount=${parsedAmount}, netAmount=${netAmount}`);
+
+        if (!existingProfile) {
+            // Auto-create profile for this user
+            const { error: profileCreateError } = await supabase
+                .from('profiles')
+                .insert({
+                    id: user_id,
+                    balance: 0,
+                    email: null,
+                    tax_rate: 0.30, // default tax rate for new profiles
+                })
+                .select()
+                .single();
+
+            if (profileCreateError) {
+                console.error('Profile auto-create error:', profileCreateError.message);
+            }
+        }
+
+        // 3. Call MyCash API to generate PIX QR Code
         const mycashRes = await fetch(MYCASH_API_URL, {
             method: 'POST',
             headers: {
@@ -57,38 +89,9 @@ export async function POST(req: Request) {
             );
         }
 
-        // mycashData structure:
-        // { success: true, id: 451, tx_id: "vp_98...", pix_code: "000201...", status: "pending" }
-
         const pixCode = mycashData.pix_code;
-        const externalId = String(mycashData.id); // numeric ID from MyCash
+        const externalId = String(mycashData.id);
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`;
-
-        // 3. Ensure user profile exists (auto-create if missing)
-        const supabase = getServerSupabase();
-
-        const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', user_id)
-            .single();
-
-        if (!existingProfile) {
-            // Auto-create profile for this user
-            const { error: profileCreateError } = await supabase
-                .from('profiles')
-                .insert({
-                    id: user_id,
-                    balance: 0,
-                    email: null,
-                })
-                .select()
-                .single();
-
-            if (profileCreateError) {
-                console.error('Profile auto-create error:', profileCreateError.message);
-            }
-        }
 
         // 4. Save transaction to Supabase
         const insertPayload = {
@@ -119,7 +122,7 @@ export async function POST(req: Request) {
             console.log('[GENERATE] Transaction saved successfully:', dbTx.id, 'user_id:', dbTx.user_id, 'external_id:', dbTx.external_id);
         }
 
-        // 5. Return result
+        // 5. Return result (include tax_rate so frontend can display correctly)
         return NextResponse.json({
             id: dbTx?.id || null,
             external_id: externalId,
@@ -127,6 +130,7 @@ export async function POST(req: Request) {
             type: 'deposit',
             amount_original: parsedAmount,
             amount_net: netAmount,
+            tax_rate: taxRate,
             description: 'Recarga Axon',
             status: 'pending',
             is_final: false,

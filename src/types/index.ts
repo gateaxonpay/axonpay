@@ -9,6 +9,7 @@ export interface Profile {
     pix_key: string | null;
     pix_type: string | null;
     balance: string | number | Decimal;
+    tax_rate: number; // 0.30 for standard, 0.25 for premium
     withdraw_lock_until: string | null;
     created_at: string;
 }

@@ -47,6 +47,7 @@ export default function DepositPage() {
     const [recentTxs, setRecentTxs] = useState<any[]>([]);
     const [isLoadingTxs, setIsLoadingTxs] = useState(true);
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
+    const [taxRate, setTaxRate] = useState(0.30); // default, will be fetched from profile
     const router = useRouter();
 
     const fetchRecentTxs = async (uid: string) => {
@@ -80,10 +81,10 @@ export default function DepositPage() {
 
     const parsedAmount = parseFloat(amount) || 0;
     const netAmount = parsedAmount > 0
-        ? new Decimal(parsedAmount).times(0.7).toDecimalPlaces(2).toNumber()
+        ? new Decimal(parsedAmount).times(new Decimal(1).minus(taxRate)).toDecimalPlaces(2).toNumber()
         : 0;
     const taxAmount = parsedAmount > 0
-        ? new Decimal(parsedAmount).times(0.3).toDecimalPlaces(2).toNumber()
+        ? new Decimal(parsedAmount).times(taxRate).toDecimalPlaces(2).toNumber()
         : 0;
 
     const searchParams = useSearchParams();
@@ -127,7 +128,7 @@ export default function DepositPage() {
         }
     }, [searchParams]);
 
-    // Auth check
+    // Auth check + fetch tax_rate
     useEffect(() => {
         async function checkAuth() {
             const { data: { user } } = await supabase.auth.getUser();
@@ -135,10 +136,21 @@ export default function DepositPage() {
                 window.location.href = '/auth';
                 return;
             }
+            // Fetch user's tax_rate from profile
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('tax_rate')
+                .eq('id', user.id)
+                .single();
+
+            if (profile?.tax_rate != null) {
+                setTaxRate(profile.tax_rate);
+            }
+
             fetchRecentTxs(user.id);
         }
         checkAuth();
-    }, []);
+    }, []);;
 
     // Check payment status function
     const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
@@ -375,7 +387,8 @@ export default function DepositPage() {
                         <div className="p-4 md:p-6 bg-white/[0.03] rounded-xl md:rounded-2xl border border-white/5 space-y-3 md:space-y-4">
                             <div className="flex justify-between items-center text-xs md:text-sm">
                                 <span className="text-muted-foreground flex items-center gap-2">
-                                    <Info size={14} /> Taxa (30%)
+                                    <Info size={14} /> Taxa ({Math.round(taxRate * 100)}%)
+                                    {taxRate < 0.30 && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold">PREMIUM</span>}
                                 </span>
                                 <span className="font-mono text-red-400">-{formatBRL(taxAmount)}</span>
                             </div>

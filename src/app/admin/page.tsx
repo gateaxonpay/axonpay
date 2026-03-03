@@ -32,6 +32,8 @@ interface UserMetric {
     email: string;
     full_name: string;
     balance: number;
+    tax_rate: number;
+    is_premium: boolean;
     totalGenerated: number;
     totalPaid: number;
     totalWithdrawn: number;
@@ -57,6 +59,7 @@ export default function AdminPage() {
     const [modalError, setModalError] = useState<string | null>(null);
     const [settingsStatus, setSettingsStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [showUserPassword, setShowUserPassword] = useState(false);
+    const [isPremiumUser, setIsPremiumUser] = useState(false);
 
     const correctPin = '171033';
 
@@ -525,8 +528,13 @@ export default function AdminPage() {
                                                             <Users size={20} />
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-black text-white group-hover:text-primary transition-colors uppercase tracking-tight italic">{user.full_name || 'Protocolo Ativo'}</p>
-                                                            <p className="text-[10px] font-mono text-muted-foreground uppercase opacity-40">USUÁRIO: {user.email?.split('@')[0]}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-black text-white group-hover:text-primary transition-colors uppercase tracking-tight italic">{user.full_name || 'Protocolo Ativo'}</p>
+                                                                {(user as any).is_premium && (
+                                                                    <span className="text-[8px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-primary/20">Premium</span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[10px] font-mono text-muted-foreground uppercase opacity-40">USUÁRIO: {user.email?.split('@')[0]} · Taxa: {Math.round(((user as any).tax_rate || 0.30) * 100)}%</p>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -701,13 +709,14 @@ export default function AdminPage() {
                                     const res = await fetch('/api/admin/users/create', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ username, password, name }),
+                                        body: JSON.stringify({ username, password, name, is_premium: isPremiumUser }),
                                     });
 
                                     const data = await res.json();
                                     if (res.ok) {
                                         setIsUserModalOpen(false);
                                         setModalError(null);
+                                        setIsPremiumUser(false);
                                         setActiveTab('users');
                                         await fetchAdminData();
                                     } else {
@@ -762,6 +771,28 @@ export default function AdminPage() {
                                             {showUserPassword ? <EyeOff size={24} /> : <Eye size={24} />}
                                         </button>
                                     </div>
+                                </div>
+
+                                {/* Premium Toggle */}
+                                <div className="flex items-center justify-between p-6 bg-white/[0.03] rounded-[25px] border border-white/10">
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-tight italic text-white">Operador Premium</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1">Taxa reduzida de 25% (ao invés de 30%)</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPremiumUser(!isPremiumUser)}
+                                        disabled={isCreatingUser}
+                                        className={cn(
+                                            "w-16 h-9 rounded-full transition-all duration-300 relative",
+                                            isPremiumUser ? "bg-primary" : "bg-white/10"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-7 h-7 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-lg",
+                                            isPremiumUser ? "left-8" : "left-1"
+                                        )} />
+                                    </button>
                                 </div>
 
                                 <div className="flex gap-6 pt-10">

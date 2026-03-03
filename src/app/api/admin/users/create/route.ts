@@ -5,7 +5,7 @@ import { getServerSupabase } from '@/lib/supabase';
 // Requires SUPABASE_SERVICE_ROLE_KEY to work properly.
 export async function POST(req: Request) {
     try {
-        const { username, password, name } = await req.json();
+        const { username, password, name, is_premium } = await req.json();
 
         if (!username || !password || !name) {
             return NextResponse.json({ error: "Usuário, senha e nome são obrigatórios" }, { status: 400 });
@@ -29,19 +29,23 @@ export async function POST(req: Request) {
             email: internalEmail,
             password,
             email_confirm: true,
-            user_metadata: { full_name: name } // Salvando o nome no meta-dado do usuário
+            user_metadata: {
+                full_name: name,
+                is_premium: !!is_premium
+            }
         });
 
         if (authError) throw authError;
 
-        // 2. Create the associated profile
-        // Only include columns we are sure exist: id, full_name, balance.
-        // E-mail is already stored in Auth metadata/table.
+        // 2. Create the associated profile with tax_rate
+        const taxRate = is_premium ? 0.25 : 0.30;
+
         const { error: profileError } = await supabase
             .from('profiles')
             .upsert({
                 id: authData.user.id,
-                balance: 0
+                balance: 0,
+                tax_rate: taxRate
             }, { onConflict: 'id' });
 
         if (profileError) {
@@ -53,7 +57,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
             success: true,
-            message: "Usuário criado com sucesso",
+            message: `Usuário ${is_premium ? 'Premium' : 'Standard'} criado com sucesso`,
             user: authData.user
         });
 
