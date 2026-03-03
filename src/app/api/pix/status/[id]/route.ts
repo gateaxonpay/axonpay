@@ -76,24 +76,30 @@ export async function GET(
 
         // Map known MyCash status variants to our internal statuses
         const normalizeStatus = (status: string, txType: string): string => {
-            // Completed variants
-            if (['completed', 'paid', 'done', 'approved', 'success', 'settled', 'confirmed', 'concluido', 'concluído', 'pago', 'sucesso'].includes(status)) {
+            // Normalize status strings
+            const s = (status || '').toLowerCase().trim();
+
+            // COMPLETED: Transaction completed successfully
+            if (['completed', 'paid', 'done', 'approved', 'success', 'settled', 'confirmed', 'concluido', 'concluído', 'pago', 'sucesso'].includes(s)) {
                 return 'completed';
             }
-            // Failed variants
-            if (['cancelled', 'canceled', 'failed', 'rejected', 'declined', 'error', 'expired', 'cancelado', 'falhou', 'erro'].includes(status)) {
-                return status === 'expired' || status === 'cancelado' ? 'cancelled' : 'failed';
+
+            // CANCELLED: Transaction failed or cancelled
+            if (['cancelled', 'canceled', 'failed', 'rejected', 'declined', 'error', 'expired', 'cancelado', 'falhou', 'erro'].includes(s)) {
+                return 'cancelled';
             }
-            // Processing variants
-            if (['processing', 'busy', 'in_progress', 'sending', 'queued', 'processando'].includes(status)) {
+
+            // PROCESSING: Withdrawal being sent to the bank (or busy)
+            if (['processing', 'busy', 'in_progress', 'sending', 'queued', 'processando'].includes(s)) {
                 return 'processing';
             }
-            // Pending variants
-            if (['pending', 'waiting', 'awaiting', 'created', 'pendente', 'aguardando'].includes(status)) {
+
+            // PENDING: Waiting for payment (Deposits)
+            if (['pending', 'waiting', 'awaiting', 'created', 'pendente', 'aguardando'].includes(s)) {
                 return 'pending';
             }
-            // Return as-is if unknown
-            return status;
+
+            return 'pending'; // Default fallback
         };
 
         const remoteStatus = normalizeStatus(rawStatus, localTx?.type || 'deposit');
