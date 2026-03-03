@@ -40,13 +40,28 @@ export async function POST(req: Request) {
         // 2. Create the associated profile with tax_rate
         const taxRate = is_premium ? 0.25 : 0.30;
 
-        const { error: profileError } = await supabase
+        // Try with tax_rate first, fall back without it if column doesn't exist
+        let profileError: any = null;
+        const { error: upsertWithTax } = await supabase
             .from('profiles')
             .upsert({
                 id: authData.user.id,
                 balance: 0,
                 tax_rate: taxRate
             }, { onConflict: 'id' });
+
+        if (upsertWithTax) {
+            // Fallback: column might not exist yet, try without tax_rate
+            console.log('[CREATE USER] tax_rate column may not exist, trying without it...');
+            const { error: upsertBasic } = await supabase
+                .from('profiles')
+                .upsert({
+                    id: authData.user.id,
+                    balance: 0
+                }, { onConflict: 'id' });
+
+            profileError = upsertBasic;
+        }
 
         if (profileError) {
             console.error("Profile creation error details:", profileError);

@@ -136,15 +136,19 @@ export default function DepositPage() {
                 window.location.href = '/auth';
                 return;
             }
-            // Fetch user's tax_rate from profile
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('tax_rate')
-                .eq('id', user.id)
-                .single();
+            // Fetch user's tax_rate from profile (resilient if column doesn't exist)
+            try {
+                const { data: profile, error } = await supabase
+                    .from('profiles')
+                    .select('tax_rate')
+                    .eq('id', user.id)
+                    .single();
 
-            if (profile?.tax_rate != null) {
-                setTaxRate(profile.tax_rate);
+                if (!error && profile?.tax_rate != null) {
+                    setTaxRate(profile.tax_rate);
+                }
+            } catch (e) {
+                // Column might not exist yet, keep default
             }
 
             fetchRecentTxs(user.id);

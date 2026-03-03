@@ -37,28 +37,46 @@ export async function POST(req: Request) {
         // 2. Fetch user profile to get their tax_rate
         const supabase = getServerSupabase();
 
-        const { data: existingProfile } = await supabase
+        // 2. Fetch user profile to get their tax_rate (resilient if column doesn't exist yet)
+        let taxRate = 0.30; // default standard rate
+        let profileExists = false;
+
+        // Try fetching with tax_rate first
+        const { data: profileWithTax, error: taxError } = await supabase
             .from('profiles')
             .select('id, tax_rate')
             .eq('id', user_id)
             .single();
 
-        // Determine tax rate: default 0.30 (standard), 0.25 (premium)
-        const taxRate = existingProfile?.tax_rate ?? 0.30;
+        if (!taxError && profileWithTax) {
+            profileExists = true;
+            taxRate = profileWithTax.tax_rate ?? 0.30;
+        } else {
+            // Fallback: column might not exist, try without tax_rate
+            const { data: profileBasic } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', user_id)
+                .single();
+
+            if (profileBasic) {
+                profileExists = true;
+            }
+        }
+
         const netMultiplier = new Decimal(1).minus(taxRate);
         const netAmount = new Decimal(parsedAmount).times(netMultiplier).toDecimalPlaces(2).toNumber();
 
         console.log(`[GENERATE] User ${user_id} tax_rate=${taxRate}, amount=${parsedAmount}, netAmount=${netAmount}`);
 
-        if (!existingProfile) {
-            // Auto-create profile for this user
+        if (!profileExists) {
+            // Auto-create profile for this user (without tax_rate if column doesn't exist)
             const { error: profileCreateError } = await supabase
                 .from('profiles')
                 .insert({
                     id: user_id,
                     balance: 0,
                     email: null,
-                    tax_rate: 0.30, // default tax rate for new profiles
                 })
                 .select()
                 .single();
