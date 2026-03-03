@@ -162,6 +162,11 @@ export default function WithdrawPage() {
     useEffect(() => {
         let interval: NodeJS.Timeout;
         if (withdrawTx && !withdrawTx.is_final) {
+            // Check immediately on mount/creation
+            if (nextCheckIn === 61) {
+                checkWithdrawStatus();
+            }
+
             interval = setInterval(() => {
                 setNextCheckIn(prev => {
                     if (prev <= 1) {
@@ -175,7 +180,7 @@ export default function WithdrawPage() {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [withdrawTx, checkWithdrawStatus]);
+    }, [withdrawTx, checkWithdrawStatus, nextCheckIn]);
 
     // Manual "Confirmar Saque" button handler
     const handleConfirmWithdraw = async () => {
@@ -244,6 +249,8 @@ export default function WithdrawPage() {
                     amount_net: data.transaction.amount_net,
                     pix_copia_e_cola: data.transaction.pix_copia_e_cola || pixKey,
                 });
+                // Immediate check skip to start polling cycle
+                setNextCheckIn(61);
             }
 
             setBalance(b => b - requestedValue);
@@ -468,18 +475,16 @@ export default function WithdrawPage() {
                                 <div className="space-y-4">
                                     <h2 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase text-red-400">Saque Falhou</h2>
                                     <p className="text-muted-foreground text-base md:text-lg max-w-[320px] mx-auto leading-relaxed">
-                                        O protocolo de saque não pôde ser processado. O valor será estornado ao seu saldo.
+                                        Detectamos um problema no processamento do seu saque. O valor retornará ao seu saldo caso não seja liquidado pela MyCash.
                                     </p>
                                 </div>
-
                                 <button
                                     onClick={() => {
                                         setWithdrawTx(null);
                                         setAmount('');
-                                        setPenaltySeconds(0);
-                                        setPenaltyMessage(false);
+                                        setNextCheckIn(61);
                                     }}
-                                    className="w-full max-w-sm h-16 bg-white/5 border border-white/10 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-white/10 transition-all"
+                                    className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-black uppercase tracking-widest text-xs"
                                 >
                                     Tentar Novamente
                                 </button>
@@ -505,8 +510,8 @@ export default function WithdrawPage() {
                                 <div className="w-full max-w-sm p-6 md:p-8 bg-white/5 rounded-3xl border border-white/5 space-y-4">
                                     <div className="flex justify-between items-center text-[9px] md:text-[10px] font-black uppercase tracking-widest">
                                         <span className="text-muted-foreground">Status do Protocolo</span>
-                                        <span className="text-blue-400 flex items-center gap-1">
-                                            <RefreshCcw size={10} className="animate-spin" /> EM PROCESSAMENTO
+                                        <span className="text-blue-400 flex items-center gap-1 uppercase">
+                                            <RefreshCcw size={10} className="animate-spin" /> {withdrawTx?.status || 'PROCESSANDO'}
                                         </span>
                                     </div>
                                     <div className="h-1 bg-white/5 rounded-full overflow-hidden">
@@ -535,8 +540,7 @@ export default function WithdrawPage() {
                                     onClick={() => {
                                         setWithdrawTx(null);
                                         setAmount('');
-                                        setPenaltySeconds(0);
-                                        setPenaltyMessage(false);
+                                        setNextCheckIn(61);
                                     }}
                                     className="mt-2 text-primary font-black uppercase tracking-[0.2em] hover:underline text-xs"
                                 >

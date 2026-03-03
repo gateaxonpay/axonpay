@@ -235,6 +235,11 @@ export default function DepositPage() {
     useEffect(() => {
         let interval: NodeJS.Timeout;
         if (transaction && !transaction.is_final) {
+            // Check immediately on mount/creation
+            if (nextCheckIn === 61) {
+                checkPaymentStatus();
+            }
+
             interval = setInterval(() => {
                 setNextCheckIn(prev => {
                     if (prev <= 1) {
@@ -248,7 +253,7 @@ export default function DepositPage() {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [transaction, checkPaymentStatus]);
+    }, [transaction, checkPaymentStatus, nextCheckIn]);
 
     // "Confirmar Pagamento" button handler
     const handleConfirmPayment = async () => {
