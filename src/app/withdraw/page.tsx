@@ -281,19 +281,19 @@ export default function WithdrawPage() {
     const isWithdrawProcessing = hasActiveWithdraw && !isWithdrawCompleted && !isWithdrawFailed;
 
     return (
-        <div className="max-w-4xl mx-auto px-4 md:px-0">
-            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 mb-10 text-center md:text-left">
-                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl shadow-2xl shadow-red-900/10">
-                    <ArrowDownCircle className="text-red-400" size={28} />
+        <div className="max-w-4xl mx-auto px-0 md:px-0">
+            <div className="flex items-center gap-3 mb-5 md:mb-10 px-1 md:px-0">
+                <div className="p-2.5 md:p-3 bg-red-500/10 border border-red-500/20 rounded-xl md:rounded-2xl">
+                    <ArrowDownCircle className="text-red-400" size={22} />
                 </div>
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white uppercase italic">Resgate de Saldo</h1>
-                    <p className="text-muted-foreground text-[10px] md:text-sm uppercase tracking-widest font-bold">Protocolo de Saque Prioritário</p>
+                    <h1 className="text-lg md:text-3xl font-bold tracking-tight text-white">Saque PIX</h1>
+                    <p className="text-muted-foreground text-[11px] md:text-sm">Resgate de saldo via PIX</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
-                <div className="lg:col-span-3 space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 md:gap-10">
+                <div className="lg:col-span-3 space-y-4 md:space-y-8">
                     <AnimatePresence mode="wait">
                         {!hasActiveWithdraw ? (
                             /* FORM STATE — no active withdraw */
@@ -302,7 +302,7 @@ export default function WithdrawPage() {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, scale: 0.9 }}
-                                className="glass-card p-6 md:p-10 rounded-[30px] md:rounded-[40px] border-white/5 space-y-8"
+                                className="glass-card p-5 md:p-10 rounded-2xl md:rounded-[40px] border-white/5 space-y-5 md:space-y-8"
                             >
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-2 gap-4">
@@ -320,10 +320,10 @@ export default function WithdrawPage() {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-[#EAB308] ml-2">Total a Deduzir (R$)</label>
+                                    <div className="space-y-3 md:space-y-4">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#EAB308] ml-1 md:ml-2">Total a Deduzir (R$)</label>
                                         <div className="relative group">
-                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xl md:text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">R$</span>
+                                            <span className="absolute left-5 md:left-6 top-1/2 -translate-y-1/2 text-lg md:text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">R$</span>
                                             <input
                                                 type="number"
                                                 value={amount}
@@ -332,11 +332,11 @@ export default function WithdrawPage() {
                                                     setError(null);
                                                 }}
                                                 placeholder="0,00"
-                                                className="w-full h-16 md:h-20 bg-white/5 border border-white/10 rounded-[20px] md:rounded-[28px] pl-14 md:pl-16 pr-20 md:pr-24 text-2xl md:text-3xl font-black outline-none focus:border-red-500/50 focus:bg-white/10 transition-all font-mono shadow-inner"
+                                                className="w-full h-14 md:h-20 bg-white/5 border border-white/10 rounded-xl md:rounded-[28px] pl-12 md:pl-16 pr-16 md:pr-24 text-2xl md:text-3xl font-black outline-none focus:border-red-500/50 focus:bg-white/10 transition-all font-mono shadow-inner"
                                             />
                                             <button
                                                 onClick={() => setAmount(balance.toString())}
-                                                className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 px-3 md:px-4 py-1.5 md:py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[8px] md:text-xs font-bold uppercase tracking-widest transition-all text-white/50 hover:text-white"
+                                                className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 px-2.5 md:px-4 py-1.5 md:py-2 bg-white/10 active:bg-white/20 rounded-lg md:rounded-xl text-[9px] md:text-xs font-bold uppercase tracking-widest transition-all text-white/50 active:text-white"
                                             >
                                                 MÁX
                                             </button>
@@ -416,7 +416,7 @@ export default function WithdrawPage() {
                                     <button
                                         onClick={handleWithdraw}
                                         disabled={isProcessing || !amount || requestedValue <= 0 || requestedValue > balance}
-                                        className="w-full h-16 md:h-20 bg-gradient-to-r from-red-600 to-orange-600 rounded-[24px] md:rounded-[28px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all shadow-2xl shadow-red-900/30 disabled:opacity-30 disabled:grayscale text-sm md:text-base"
+                                        className="w-full h-14 md:h-20 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl md:rounded-[28px] font-bold md:font-black uppercase tracking-wider md:tracking-[0.2em] flex items-center justify-center gap-2 md:gap-3 active:scale-[0.97] md:hover:scale-[1.02] transition-all shadow-2xl shadow-red-900/30 disabled:opacity-30 disabled:grayscale text-sm md:text-base"
                                     >
                                         {isProcessing ? (
                                             <Loader2 size={24} className="animate-spin" />

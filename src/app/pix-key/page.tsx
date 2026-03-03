@@ -169,14 +169,14 @@ export default function PixKeyPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 md:px-0 space-y-10">
-            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 text-center md:text-left">
-                <div className="p-3 bg-[#EAB308]/10 border border-[#EAB308]/20 rounded-2xl shadow-2xl shadow-yellow-900/10">
-                    <Key className="text-[#EAB308]" size={28} />
+        <div className="max-w-4xl mx-auto px-0 md:px-0 space-y-6 md:space-y-10">
+            <div className="flex items-center gap-3 px-1 md:px-0">
+                <div className="p-2.5 md:p-3 bg-[#EAB308]/10 border border-[#EAB308]/20 rounded-xl md:rounded-2xl">
+                    <Key className="text-[#EAB308]" size={22} />
                 </div>
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white uppercase italic">Chaves PIX</h1>
-                    <p className="text-muted-foreground text-[10px] md:text-sm uppercase tracking-widest font-bold">Gerenciamento de Recebimento</p>
+                    <h1 className="text-lg md:text-3xl font-bold tracking-tight text-white">Chaves PIX</h1>
+                    <p className="text-muted-foreground text-[11px] md:text-sm">Gerenciamento de recebimento</p>
                 </div>
             </div>
 
@@ -185,7 +185,7 @@ export default function PixKeyPage() {
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="glass-card p-6 md:p-10 rounded-[30px] md:rounded-[40px] border-white/5 space-y-8 h-fit"
+                    className="glass-card p-5 md:p-10 rounded-2xl md:rounded-[40px] border-white/5 space-y-5 md:space-y-8 h-fit"
                 >
                     <div className="flex items-center gap-3 text-[#EAB308] mb-2 font-black text-xs uppercase tracking-widest">
                         <Plus size={18} />
@@ -260,7 +260,7 @@ export default function PixKeyPage() {
                     <button
                         onClick={handleSave}
                         disabled={isSaving || !pixKey.trim()}
-                        className="w-full h-14 md:h-16 gold-gradient rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-30 disabled:hover:scale-100 text-[10px] md:text-xs"
+                        className="w-full h-12 md:h-16 gold-gradient rounded-xl md:rounded-2xl font-bold md:font-black uppercase tracking-wider md:tracking-[0.2em] flex items-center justify-center gap-2 md:gap-3 active:scale-[0.97] md:hover:scale-[1.02] transition-all disabled:opacity-30 text-xs md:text-xs"
                     >
                         {isSaving ? (
                             <Loader2 size={18} className="animate-spin" />

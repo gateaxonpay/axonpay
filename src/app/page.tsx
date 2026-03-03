@@ -33,7 +33,6 @@ export default function Dashboard() {
 
   const fetchData = async (userId: string) => {
     try {
-      // 1. Sync any pending/processing transactions (both deposit and withdraw)
       const { data: pendingTxs } = await supabase
         .from('transactions')
         .select('external_id, type, status')
@@ -43,13 +42,11 @@ export default function Dashboard() {
         .limit(10);
 
       if (pendingTxs && pendingTxs.length > 0) {
-        console.log(`[DASHBOARD] Syncing ${pendingTxs.length} protocols...`);
         await Promise.allSettled(
           pendingTxs.map(tx => fetch(`/api/pix/status/${tx.external_id}`))
         );
       }
 
-      // 2. Fetch profile balance
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -58,7 +55,6 @@ export default function Dashboard() {
 
       if (profile) setBalance(profile.balance);
 
-      // 3. Fetch recent transactions
       const txRes = await fetch(`/api/user/transactions?userId=${userId}`);
       const txData = await txRes.json();
 
@@ -81,7 +77,6 @@ export default function Dashboard() {
         return;
       }
       userId = user.id;
-      // Pega apenas a parte do usuário do "e-mail" interno
       const username = user.email?.split('@')[0] || '';
       setEmail(username);
       fetchData(user.id);
@@ -89,7 +84,6 @@ export default function Dashboard() {
 
     checkUser();
 
-    // Polling interval for real-time updates every 60s
     const interval = setInterval(() => {
       if (userId) fetchData(userId);
     }, 60000);
@@ -113,18 +107,87 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
-        <RefreshCcw className="animate-spin text-primary" size={40} />
-        <p className="text-[10px] uppercase font-black tracking-[0.5em] text-muted-foreground animate-pulse">Sincronizando Protocolos</p>
+        <RefreshCcw className="animate-spin text-primary" size={32} />
+        <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-muted-foreground animate-pulse">Sincronizando...</p>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-12">
-      {/* Welcome Header */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-[#0a0a0a]/40 p-6 md:p-10 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group gap-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -mr-32 -mt-32 group-hover:bg-primary/10 transition-all duration-700" />
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <span className="bg-green-500/10 text-green-500 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-green-500/20">Pago</span>;
+      case 'pending':
+        return <span className="bg-yellow-500/10 text-yellow-500 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-yellow-500/20">Pendente</span>;
+      case 'processing':
+      case 'busy':
+        return <span className="bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-blue-500/20 animate-pulse">Processando</span>;
+      case 'cancelled':
+      case 'failed':
+        return <span className="bg-red-500/10 text-red-500 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-red-500/20">Falhou</span>;
+      default:
+        return null;
+    }
+  };
 
+  return (
+    <div className="space-y-6 md:space-y-12">
+      {/* Mobile Header — compact, app-like */}
+      <div className="md:hidden">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <UserIcon size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-medium">Olá,</p>
+              <p className="text-sm font-bold text-white capitalize">{email}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-10 h-10 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-muted-foreground active:bg-red-500/10 active:text-red-500 transition-all"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+
+        {/* Mobile Balance Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#141414] to-[#0c0c0c] border border-white/[0.06] p-5"
+        >
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/8 rounded-full blur-[60px] -mr-20 -mt-20" />
+          <div className="relative">
+            <p className="text-[10px] text-muted-foreground font-medium mb-1 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              Saldo disponível
+            </p>
+            <h2 className="text-3xl font-black text-white tracking-tight mb-5">
+              {formatBRL(balance)}
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/deposit">
+                <button className="w-full h-12 gold-gradient rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.97] transition-transform">
+                  <ArrowUpCircle size={18} />
+                  Depositar
+                </button>
+              </Link>
+              <Link href="/withdraw">
+                <button className="w-full h-12 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.97] transition-transform">
+                  <ArrowDownCircle size={18} className="text-red-400" />
+                  Sacar
+                </button>
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Desktop Header — unchanged */}
+      <div className="hidden md:flex flex-col md:flex-row justify-between items-center bg-[#0a0a0a]/40 p-6 md:p-10 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group gap-6">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -mr-32 -mt-32 group-hover:bg-primary/10 transition-all duration-700" />
         <div className="flex flex-col md:flex-row items-center gap-6 relative text-center md:text-left">
           <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center text-primary border border-white/10 shadow-xl shadow-yellow-500/10">
             <UserIcon size={32} />
@@ -139,7 +202,6 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
-
         <button
           onClick={handleLogout}
           className="w-full md:w-14 h-14 bg-white/5 hover:bg-red-500/10 border border-white/10 rounded-2xl flex items-center justify-center text-muted-foreground hover:text-red-500 transition-all group/logout shadow-lg font-bold text-xs uppercase md:text-base"
@@ -149,14 +211,13 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Hero Balance Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
+      {/* Desktop Hero Balance Card */}
+      <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="lg:col-span-2 relative h-auto md:h-80 rounded-[40px] md:rounded-[50px] overflow-hidden glass-card group shadow-2xl shadow-yellow-900/10 border-white/5"
         >
-          {/* Background effects */}
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] -mr-48 -mt-48 transition-all group-hover:bg-primary/20 duration-1000" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px] -ml-28 -mb-28" />
 
@@ -230,127 +291,188 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Transaction Table */}
-      <div className="glass-card rounded-[40px] md:rounded-[50px] overflow-hidden border-white/5 shadow-2xl">
-        <div className="p-6 md:p-10 border-b border-white/5 flex flex-col md:flex-row justify-between items-center bg-white/[0.02] gap-6">
-          <div className="flex items-center gap-4 text-center md:text-left">
-            <div className="p-3 bg-white/5 rounded-2xl border border-white/10 shadow-lg hidden sm:block">
-              <History size={24} className="text-muted-foreground" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter">Fluxo de Protocolos</h2>
-              <p className="text-[9px] md:text-[10px] uppercase font-black tracking-widest text-muted-foreground/60">Últimas 10 Atividades Registradas</p>
-            </div>
+      {/* Transactions — Mobile Card List / Desktop Table */}
+      <div>
+        <div className="flex items-center justify-between mb-4 md:mb-0">
+          <div className="md:hidden">
+            <h2 className="text-lg font-bold text-white">Histórico</h2>
+            <p className="text-[11px] text-muted-foreground">Últimas transações</p>
           </div>
-          <button className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-primary hover:text-white transition-all underline outline-none">
-            Auditar Tudo
-          </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-white/5 bg-white/[0.01]">
-                <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">ID Transação</th>
-                <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Operação</th>
-                <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 hidden md:table-cell">Valor Bruto</th>
-                <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Valor Real</th>
-                <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Status</th>
-                <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 hidden lg:table-cell">Timestamp</th>
-                <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-10 py-24 text-center">
-                    <div className="opacity-20 space-y-4">
-                      <Activity className="mx-auto" size={48} />
-                      <p className="text-xs font-black uppercase tracking-[0.3em]">Nenhum protocolo detectado.</p>
-                    </div>
-                  </td>
+        {/* Mobile Card Layout */}
+        <div className="md:hidden space-y-3">
+          {transactions.length === 0 ? (
+            <div className="text-center py-16">
+              <Activity className="mx-auto mb-3 text-muted-foreground/20" size={36} />
+              <p className="text-xs text-muted-foreground/40 font-medium">Nenhuma transação</p>
+            </div>
+          ) : transactions.map((tx) => (
+            <motion.div
+              key={tx.id}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 active:bg-white/[0.05] transition-colors"
+            >
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    tx.type === 'deposit' ? "bg-blue-500/10 text-blue-400" : "bg-green-500/10 text-green-400"
+                  )}>
+                    {tx.type === 'deposit' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {tx.type === 'deposit' ? 'Depósito' : 'Saque'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(tx.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+                {getStatusBadge(tx.status)}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-white">{formatBRL(tx.amount_net as any)}</span>
+                <div className="flex items-center gap-2">
+                  {tx.status === 'pending' && tx.type === 'deposit' && (
+                    <>
+                      <Link href={`/deposit?txId=${tx.id || ''}`}>
+                        <button className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-[11px] font-bold active:scale-95 transition-transform border border-primary/20">
+                          Abrir
+                        </button>
+                      </Link>
+                      <button
+                        onClick={() => handleManualCheck(tx.external_id || '')}
+                        className="p-1.5 bg-white/5 rounded-lg border border-white/10"
+                      >
+                        <RefreshCcw size={14} className={cn("text-muted-foreground", isLoading && "animate-spin")} />
+                      </button>
+                    </>
+                  )}
+                  {(tx.status === 'processing' || tx.status === 'busy') && tx.type === 'withdraw' && (
+                    <>
+                      <Link href={`/withdraw?txId=${tx.id || ''}`}>
+                        <button className="px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg text-[11px] font-bold active:scale-95 transition-transform border border-blue-500/20">
+                          Abrir
+                        </button>
+                      </Link>
+                      <button
+                        onClick={() => handleManualCheck(tx.external_id || '')}
+                        className="p-1.5 bg-white/5 rounded-lg border border-white/10"
+                      >
+                        <RefreshCcw size={14} className={cn("text-muted-foreground", isLoading && "animate-spin")} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Desktop Table Layout */}
+        <div className="hidden md:block glass-card rounded-[40px] md:rounded-[50px] overflow-hidden border-white/5 shadow-2xl">
+          <div className="p-6 md:p-10 border-b border-white/5 flex flex-col md:flex-row justify-between items-center bg-white/[0.02] gap-6">
+            <div className="flex items-center gap-4 text-center md:text-left">
+              <div className="p-3 bg-white/5 rounded-2xl border border-white/10 shadow-lg">
+                <History size={24} className="text-muted-foreground" />
+              </div>
+              <div>
+                <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter">Fluxo de Protocolos</h2>
+                <p className="text-[9px] md:text-[10px] uppercase font-black tracking-widest text-muted-foreground/60">Últimas 10 Atividades Registradas</p>
+              </div>
+            </div>
+            <button className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-primary hover:text-white transition-all underline outline-none">
+              Auditar Tudo
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.01]">
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">ID Transação</th>
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Operação</th>
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Valor Bruto</th>
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Valor Real</th>
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Status</th>
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 hidden lg:table-cell">Timestamp</th>
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Ação</th>
                 </tr>
-              ) : transactions.map((tx) => (
-                <tr key={tx.id} className="hover:bg-white/[0.03] transition-all group">
-                  <td className="px-6 md:px-10 py-6 font-mono text-[9px] md:text-[10px] opacity-40 group-hover:opacity-100 transition-opacity tracking-widest uppercase">#{tx.id.slice(0, 8)}...</td>
-                  <td className="px-6 md:px-10 py-6">
-                    <div className="flex items-center gap-3">
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-10 py-24 text-center">
+                      <div className="opacity-20 space-y-4">
+                        <Activity className="mx-auto" size={48} />
+                        <p className="text-xs font-black uppercase tracking-[0.3em]">Nenhum protocolo detectado.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : transactions.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-white/[0.03] transition-all group">
+                    <td className="px-10 py-6 font-mono text-[10px] opacity-40 group-hover:opacity-100 transition-opacity tracking-widest uppercase">#{tx.id.slice(0, 8)}...</td>
+                    <td className="px-10 py-6">
                       {tx.type === 'deposit' ? (
-                        <div className="flex items-center gap-2 bg-blue-500/10 text-blue-400 px-2 md:px-3 py-1.5 rounded-xl border border-blue-500/20 text-[8px] md:text-[10px] font-black italic">
-                          <ArrowUpCircle size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden sm:inline">APORTE</span><span className="sm:hidden">DEP</span>
+                        <div className="flex items-center gap-2 bg-blue-500/10 text-blue-400 px-3 py-1.5 rounded-xl border border-blue-500/20 text-[10px] font-black italic w-fit">
+                          <ArrowUpCircle size={14} /> APORTE
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 bg-green-500/10 text-green-400 px-2 md:px-3 py-1.5 rounded-xl border border-green-500/20 text-[8px] md:text-[10px] font-black italic">
-                          <ArrowDownCircle size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden sm:inline">RESGATE</span><span className="sm:hidden">SAQ</span>
+                        <div className="flex items-center gap-2 bg-green-500/10 text-green-400 px-3 py-1.5 rounded-xl border border-green-500/20 text-[10px] font-black italic w-fit">
+                          <ArrowDownCircle size={14} /> RESGATE
                         </div>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-6 md:px-10 py-6 font-bold text-xs md:text-sm hidden md:table-cell">{formatBRL(tx.type === 'withdraw' ? tx.amount_net as any : tx.amount_original as any)}</td>
-                  <td className="px-6 md:px-10 py-6 text-[#EAB308] font-black text-xs md:text-sm italic">{formatBRL(tx.amount_net as any)}</td>
-                  <td className="px-6 md:px-10 py-6">
-                    {tx.status === 'completed' && (
-                      <span className="bg-green-500/10 text-green-500 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[10px] font-black border border-green-500/20 italic tracking-widest uppercase">
-                        OK
-                      </span>
-                    )}
-                    {tx.status === 'pending' && (
-                      <span className="bg-yellow-500/10 text-yellow-500 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[10px] font-black border border-yellow-500/20 italic tracking-widest uppercase">
-                        PEND
-                      </span>
-                    )}
-                    {(tx.status === 'processing' || tx.status === 'busy') && (
-                      <span className="bg-blue-500/10 text-blue-400 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[8px] font-black border border-blue-500/20 italic tracking-widest animate-pulse uppercase leading-tight text-center flex items-center">
-                        Saque em Andamento
-                      </span>
-                    )}
-                    {(tx.status === 'cancelled' || tx.status === 'failed') && (
-                      <span className="bg-red-500/10 text-red-500 px-2 md:px-4 py-1.5 rounded-xl text-[8px] md:text-[10px] font-black border border-red-500/20 italic tracking-widest uppercase">
-                        FAIL
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-10 py-6 text-[10px] text-muted-foreground font-black uppercase tracking-widest hidden lg:table-cell opacity-50">
-                    {new Date(tx.created_at).toLocaleString('pt-BR')}
-                  </td>
-                  <td className="px-6 md:px-10 py-6">
-                    {tx.status === 'pending' && tx.type === 'deposit' && (
-                      <div className="flex items-center gap-2">
-                        <Link href={`/deposit?txId=${tx.id || ''}`}>
-                          <button className="bg-primary/10 text-primary hover:bg-primary border border-primary/20 hover:text-black px-3 py-1 rounded-lg text-[8px] font-black transition-all">
-                            ABRIR
+                    </td>
+                    <td className="px-10 py-6 font-bold text-sm">{formatBRL(tx.type === 'withdraw' ? tx.amount_net as any : tx.amount_original as any)}</td>
+                    <td className="px-10 py-6 text-[#EAB308] font-black text-sm italic">{formatBRL(tx.amount_net as any)}</td>
+                    <td className="px-10 py-6">
+                      {tx.status === 'completed' && (
+                        <span className="bg-green-500/10 text-green-500 px-4 py-1.5 rounded-xl text-[10px] font-black border border-green-500/20 italic tracking-widest uppercase">OK</span>
+                      )}
+                      {tx.status === 'pending' && (
+                        <span className="bg-yellow-500/10 text-yellow-500 px-4 py-1.5 rounded-xl text-[10px] font-black border border-yellow-500/20 italic tracking-widest uppercase">PEND</span>
+                      )}
+                      {(tx.status === 'processing' || tx.status === 'busy') && (
+                        <span className="bg-blue-500/10 text-blue-400 px-4 py-1.5 rounded-xl text-[10px] font-black border border-blue-500/20 italic tracking-widest animate-pulse uppercase">Processando</span>
+                      )}
+                      {(tx.status === 'cancelled' || tx.status === 'failed') && (
+                        <span className="bg-red-500/10 text-red-500 px-4 py-1.5 rounded-xl text-[10px] font-black border border-red-500/20 italic tracking-widest uppercase">FAIL</span>
+                      )}
+                    </td>
+                    <td className="px-10 py-6 text-[10px] text-muted-foreground font-black uppercase tracking-widest hidden lg:table-cell opacity-50">
+                      {new Date(tx.created_at).toLocaleString('pt-BR')}
+                    </td>
+                    <td className="px-10 py-6">
+                      {tx.status === 'pending' && tx.type === 'deposit' && (
+                        <div className="flex items-center gap-2">
+                          <Link href={`/deposit?txId=${tx.id || ''}`}>
+                            <button className="bg-primary/10 text-primary hover:bg-primary border border-primary/20 hover:text-black px-3 py-1 rounded-lg text-[8px] font-black transition-all">ABRIR</button>
+                          </Link>
+                          <button onClick={() => handleManualCheck(tx.external_id || '')} className="bg-white/5 text-muted-foreground hover:bg-white/10 p-1.5 rounded-lg border border-white/10 transition-all">
+                            <RefreshCcw size={12} className={isLoading ? "animate-spin" : ""} />
                           </button>
-                        </Link>
-                        <button
-                          onClick={() => handleManualCheck(tx.external_id || '')}
-                          className="bg-white/5 text-muted-foreground hover:bg-white/10 p-1.5 rounded-lg border border-white/10 transition-all"
-                          title="Verificar Status"
-                        >
-                          <RefreshCcw size={12} className={isLoading ? "animate-spin" : ""} />
-                        </button>
-                      </div>
-                    )}
-                    {(tx.status === 'processing' || tx.status === 'busy') && tx.type === 'withdraw' && (
-                      <div className="flex items-center gap-2">
-                        <Link href={`/withdraw?txId=${tx.id || ''}`}>
-                          <button className="bg-blue-500/10 text-blue-400 hover:bg-blue-500 border border-blue-500/20 hover:text-black px-3 py-1 rounded-lg text-[8px] font-black transition-all">
-                            ABRIR
+                        </div>
+                      )}
+                      {(tx.status === 'processing' || tx.status === 'busy') && tx.type === 'withdraw' && (
+                        <div className="flex items-center gap-2">
+                          <Link href={`/withdraw?txId=${tx.id || ''}`}>
+                            <button className="bg-blue-500/10 text-blue-400 hover:bg-blue-500 border border-blue-500/20 hover:text-black px-3 py-1 rounded-lg text-[8px] font-black transition-all">ABRIR</button>
+                          </Link>
+                          <button onClick={() => handleManualCheck(tx.external_id || '')} className="bg-white/5 text-muted-foreground hover:bg-white/10 p-1.5 rounded-lg border border-white/10 transition-all">
+                            <RefreshCcw size={12} className={isLoading ? "animate-spin" : ""} />
                           </button>
-                        </Link>
-                        <button
-                          onClick={() => handleManualCheck(tx.external_id || '')}
-                          className="bg-white/5 text-muted-foreground hover:bg-white/10 p-1.5 rounded-lg border border-white/10 transition-all"
-                          title="Verificar Status"
-                        >
-                          <RefreshCcw size={12} className={isLoading ? "animate-spin" : ""} />
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

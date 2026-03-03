@@ -319,30 +319,30 @@ export default function DepositPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto px-4 md:px-0 space-y-10">
-            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 mb-10 text-center md:text-left">
-                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-                    <ArrowUpCircle className="text-blue-400" size={28} />
+        <div className="max-w-4xl mx-auto px-0 md:px-0">
+            <div className="flex items-center gap-3 mb-5 md:mb-10 px-1 md:px-0">
+                <div className="p-2.5 md:p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl md:rounded-2xl">
+                    <ArrowUpCircle className="text-blue-400" size={22} />
                 </div>
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Gerar Depósito PIX</h1>
-                    <p className="text-muted-foreground mt-1 text-sm">Transações rápidas, seguras e irreversíveis.</p>
+                    <h1 className="text-lg md:text-3xl font-bold tracking-tight">Depósito PIX</h1>
+                    <p className="text-muted-foreground text-[11px] md:text-sm">Rápido, seguro e irreversível</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 md:gap-10">
                 {/* Left: Form */}
-                <div className="lg:col-span-3 space-y-8">
-                    <div className="glass-card p-6 md:p-10 rounded-3xl space-y-8 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32" />
+                <div className="lg:col-span-3 space-y-4 md:space-y-8">
+                    <div className="glass-card p-5 md:p-10 rounded-2xl md:rounded-3xl space-y-5 md:space-y-8 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32 hidden md:block" />
 
                         <div className="space-y-6">
-                            <div className="space-y-3">
-                                <label className="text-sm font-bold uppercase tracking-widest text-[#EAB308]">
+                            <div className="space-y-2 md:space-y-3">
+                                <label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#EAB308]">
                                     Valor do Depósito (R$)
                                 </label>
                                 <div className="relative group">
-                                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">
+                                    <span className="absolute left-5 md:left-6 top-1/2 -translate-y-1/2 text-xl md:text-2xl font-bold opacity-30 group-focus-within:opacity-100 transition-opacity">
                                         R$
                                     </span>
                                     <input
@@ -356,10 +356,10 @@ export default function DepositPage() {
                                         step="0.01"
                                         placeholder="20,00"
                                         disabled={!!transaction}
-                                        className="w-full h-20 bg-white/5 border border-white/10 rounded-2xl pl-16 pr-6 text-3xl font-black outline-none focus:border-primary/50 focus:bg-white/10 transition-all disabled:opacity-50"
+                                        className="w-full h-14 md:h-20 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl pl-14 md:pl-16 pr-6 text-2xl md:text-3xl font-black outline-none focus:border-primary/50 focus:bg-white/10 transition-all disabled:opacity-50"
                                     />
                                 </div>
-                                <p className="text-xs text-muted-foreground ml-2">Mínimo: R$ 20,00</p>
+                                <p className="text-[11px] text-muted-foreground ml-1">Mínimo: R$ 20,00</p>
                             </div>
 
 
@@ -372,17 +372,17 @@ export default function DepositPage() {
                         </div>
 
                         {/* Tax Engine */}
-                        <div className="p-6 bg-white/[0.03] rounded-2xl border border-white/5 space-y-4">
-                            <div className="flex justify-between items-center text-sm">
+                        <div className="p-4 md:p-6 bg-white/[0.03] rounded-xl md:rounded-2xl border border-white/5 space-y-3 md:space-y-4">
+                            <div className="flex justify-between items-center text-xs md:text-sm">
                                 <span className="text-muted-foreground flex items-center gap-2">
-                                    <Info size={14} /> Taxa Operacional (30%)
+                                    <Info size={14} /> Taxa (30%)
                                 </span>
                                 <span className="font-mono text-red-400">-{formatBRL(taxAmount)}</span>
                             </div>
                             <div className="h-px bg-white/5" />
                             <div className="flex justify-between items-center font-bold">
-                                <span className="text-lg">Crédito Líquido</span>
-                                <span className="text-2xl text-[#EAB308]">{formatBRL(netAmount)}</span>
+                                <span className="text-sm md:text-lg">Crédito Líquido</span>
+                                <span className="text-xl md:text-2xl text-[#EAB308]">{formatBRL(netAmount)}</span>
                             </div>
                         </div>
 
@@ -390,30 +390,29 @@ export default function DepositPage() {
                             <button
                                 onClick={handleGenerate}
                                 disabled={isGenerating || !amount || parsedAmount < 20}
-                                className="w-full h-16 gold-gradient rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-30 disabled:hover:scale-100"
+                                className="w-full h-13 md:h-16 gold-gradient rounded-xl md:rounded-2xl font-bold md:font-black uppercase tracking-wider md:tracking-widest flex items-center justify-center gap-2 md:gap-3 active:scale-[0.97] md:hover:scale-[1.02] transition-all disabled:opacity-30 text-sm md:text-base"
                             >
                                 {isGenerating ? (
-                                    <RefreshCcw className="animate-spin" size={24} />
+                                    <RefreshCcw className="animate-spin" size={20} />
                                 ) : (
-                                    <QrCodeIcon size={24} />
+                                    <QrCodeIcon size={20} />
                                 )}
-                                {isGenerating ? 'Gerando...' : 'Gerar Cobrança PIX'}
+                                {isGenerating ? 'Gerando...' : 'Gerar PIX'}
                             </button>
                         ) : (
                             <button
                                 onClick={resetTransaction}
-                                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl font-bold text-muted-foreground hover:bg-white/10 transition-all"
+                                className="w-full h-13 md:h-16 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl font-bold text-muted-foreground active:bg-white/10 transition-all text-sm"
                             >
                                 Nova Transação
                             </button>
                         )}
                     </div>
 
-                    <div className="p-6 border border-yellow-600/20 bg-yellow-600/5 rounded-2xl flex gap-4 items-start">
-                        <AlertTriangle className="text-yellow-500 shrink-0" size={24} />
-                        <p className="text-sm text-yellow-200/70 leading-relaxed">
-                            <strong>Atenção:</strong> O valor será creditado após a confirmação automática na rede PIX.
-                            O QR Code expira em 30 minutos.
+                    <div className="p-4 md:p-6 border border-yellow-600/20 bg-yellow-600/5 rounded-xl md:rounded-2xl flex gap-3 md:gap-4 items-start">
+                        <AlertTriangle className="text-yellow-500 shrink-0" size={18} />
+                        <p className="text-xs md:text-sm text-yellow-200/70 leading-relaxed">
+                            <strong>Atenção:</strong> O valor será creditado após confirmação automática. Expira em 30 min.
                         </p>
                     </div>
                 </div>
