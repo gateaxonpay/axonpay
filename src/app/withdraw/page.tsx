@@ -126,8 +126,8 @@ export default function WithdrawPage() {
     const netValue = requestedValue;
 
     // Check withdraw status via the existing status API
-    const checkWithdrawStatus = useCallback(async (): Promise<boolean> => {
-        if (!withdrawTx || withdrawTx.is_final) return false;
+    const checkWithdrawStatus = useCallback(async (): Promise<{ success: boolean, retryAfter?: boolean }> => {
+        if (!withdrawTx || withdrawTx.is_final) return { success: false };
 
         try {
             const res = await fetch(`/api/pix/status/${withdrawTx.external_id}`);
@@ -146,12 +146,14 @@ export default function WithdrawPage() {
                     };
                 });
 
-                return isCompleted;
+                return { success: isCompleted };
+            } else if (data.error && data.error.toLowerCase().includes('rate limit')) {
+                return { success: false, retryAfter: true };
             }
         } catch (e) {
             console.error('Withdraw status check error:', e);
         }
-        return false;
+        return { success: false };
     }, [withdrawTx]);
 
     // Background polling every 60s
@@ -192,18 +194,14 @@ export default function WithdrawPage() {
         setIsChecking(true);
         setPenaltyMessage(false);
 
-        const confirmed = await checkWithdrawStatus();
+        const result = await checkWithdrawStatus();
+        setIsChecking(false);
 
-        if (confirmed) {
-            // Success — withdraw was processed by MyCash
-            // No need to redirect, the UI will change automatically
-        } else {
-            // Not confirmed yet — apply 1 min penalty
+        if (!result.success) {
+            // Apply a short penalty or inform about rate limit
             setPenaltySeconds(60);
             setPenaltyMessage(true);
         }
-
-        setIsChecking(false);
     };
 
     const handleWithdraw = async () => {

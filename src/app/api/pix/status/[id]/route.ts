@@ -76,18 +76,20 @@ export async function GET(
         const rawStatus = (mycashData.status || '').toLowerCase().trim();
 
         const normalizeStatus = (status: string): string => {
+            const s = (status || '').toLowerCase().trim();
+
             // SUCCESS: paid (deposit) or completed (withdraw)
-            if (['paid', 'completed', 'approved', 'success', 'confirmed', 'settled'].includes(status)) {
+            if (['paid', 'completed', 'approved', 'success', 'confirmed', 'settled', 'concluido', 'concluído', 'pago', 'sucesso'].includes(s)) {
                 return 'completed';
             }
 
             // CANCELLED: failed or expired
-            if (['cancelled', 'canceled', 'failed', 'rejected', 'error', 'expired'].includes(status)) {
+            if (['cancelled', 'canceled', 'failed', 'rejected', 'error', 'expired', 'cancelado', 'falhou', 'erro'].includes(s)) {
                 return 'cancelled';
             }
 
             // PROCESSING: strictly for withdrawals being sent
-            if (['processing', 'busy', 'sending', 'queued', 'in_progress'].includes(status)) {
+            if (['processing', 'busy', 'sending', 'queued', 'in_progress', 'processando'].includes(s)) {
                 return 'processing';
             }
 
