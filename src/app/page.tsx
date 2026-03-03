@@ -120,7 +120,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-12 pb-20">
+    <div className="space-y-12">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-[#0a0a0a]/40 p-6 md:p-10 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group gap-6">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -mr-32 -mt-32 group-hover:bg-primary/10 transition-all duration-700" />

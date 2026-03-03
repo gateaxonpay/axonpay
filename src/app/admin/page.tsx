@@ -246,7 +246,7 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="space-y-12 pb-20">
+        <div className="space-y-12">
             {/* Super Admin Header */}
             <div className="flex justify-between items-center bg-[#0a0a0a]/50 p-10 rounded-[50px] border border-white/5 backdrop-blur-3xl shadow-3xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-96 h-96 bg-red-600/5 blur-[120px] -ml-40 -mt-40" />

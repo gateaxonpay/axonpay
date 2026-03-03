@@ -40,7 +40,7 @@ export function Sidebar() {
     if (pathname === '/auth') return null;
 
     return (
-        <aside className="w-64 h-screen fixed left-0 top-0 bg-[#0a0a0a] border-r border-white/5 flex flex-col p-8 z-50 backdrop-blur-xl shadow-2xl">
+        <aside className="hidden md:flex w-64 h-screen fixed left-0 top-0 bg-[#0a0a0a] border-r border-white/5 flex-col p-8 z-50 backdrop-blur-xl shadow-2xl">
             <div className="flex items-center gap-4 mb-16 relative">
                 <div className="p-3 bg-gradient-to-br from-[#EAB308] to-[#92400E] rounded-2xl shadow-xl shadow-yellow-600/20 group hover:scale-110 transition-transform cursor-pointer active:scale-95">
                     <Wallet size={24} className="text-black" />

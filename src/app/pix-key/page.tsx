@@ -169,7 +169,7 @@ export default function PixKeyPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto pb-20 px-4 md:px-0 space-y-10">
+        <div className="max-w-4xl mx-auto px-4 md:px-0 space-y-10">
             <div className="flex flex-col md:flex-row items-center md:items-center gap-4 text-center md:text-left">
                 <div className="p-3 bg-[#EAB308]/10 border border-[#EAB308]/20 rounded-2xl shadow-2xl shadow-yellow-900/10">
                     <Key className="text-[#EAB308]" size={28} />

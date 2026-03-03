@@ -85,7 +85,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
                 "flex-1 p-4 md:p-8 overflow-y-auto transition-all duration-500 min-h-screen relative",
                 !hideSidebar ? "md:ml-64" : "ml-0"
             )}>
-                <div className="max-w-7xl mx-auto space-y-12 pb-20">
+                <div className="max-w-7xl mx-auto space-y-12 pb-32">
                     {children}
                 </div>
 

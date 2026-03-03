@@ -319,7 +319,7 @@ export default function DepositPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto pb-20 px-4 md:px-0">
+        <div className="max-w-4xl mx-auto px-4 md:px-0 space-y-10">
             <div className="flex flex-col md:flex-row items-center md:items-center gap-4 mb-10 text-center md:text-left">
                 <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
                     <ArrowUpCircle className="text-blue-400" size={28} />
