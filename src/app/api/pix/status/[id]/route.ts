@@ -77,19 +77,19 @@ export async function GET(
         // Map known MyCash status variants to our internal statuses
         const normalizeStatus = (status: string, txType: string): string => {
             // Completed variants
-            if (['completed', 'paid', 'done', 'approved', 'success', 'settled', 'confirmed'].includes(status)) {
+            if (['completed', 'paid', 'done', 'approved', 'success', 'settled', 'confirmed', 'concluido', 'concluído', 'pago', 'sucesso'].includes(status)) {
                 return 'completed';
             }
             // Failed variants
-            if (['cancelled', 'canceled', 'failed', 'rejected', 'declined', 'error', 'expired'].includes(status)) {
-                return status === 'expired' ? 'cancelled' : 'failed';
+            if (['cancelled', 'canceled', 'failed', 'rejected', 'declined', 'error', 'expired', 'cancelado', 'falhou', 'erro'].includes(status)) {
+                return status === 'expired' || status === 'cancelado' ? 'cancelled' : 'failed';
             }
             // Processing variants
-            if (['processing', 'busy', 'in_progress', 'sending', 'queued'].includes(status)) {
+            if (['processing', 'busy', 'in_progress', 'sending', 'queued', 'processando'].includes(status)) {
                 return 'processing';
             }
             // Pending variants
-            if (['pending', 'waiting', 'awaiting', 'created'].includes(status)) {
+            if (['pending', 'waiting', 'awaiting', 'created', 'pendente', 'aguardando'].includes(status)) {
                 return 'pending';
             }
             // Return as-is if unknown
