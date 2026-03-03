@@ -157,8 +157,8 @@ export default function DepositPage() {
     }, []);;
 
     // Check payment status function
-    const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
-        if (!transaction || transaction.is_final) return false;
+    const checkPaymentStatus = useCallback(async (): Promise<{ success: boolean, retryAfter?: boolean }> => {
+        if (!transaction || transaction.is_final) return { success: false };
 
         try {
             const res = await fetch(`/api/pix/status/${transaction.external_id}`);
@@ -177,12 +177,14 @@ export default function DepositPage() {
                     };
                 });
 
-                return isCompleted;
+                return { success: isCompleted };
+            } else if (data.error && data.error.toLowerCase().includes('rate limit')) {
+                return { success: false, retryAfter: true };
             }
         } catch (e) {
             console.error('Status check error:', e);
         }
-        return false;
+        return { success: false };
     }, [transaction]);
 
     // Payment validity timer (30 mins)
@@ -247,9 +249,10 @@ export default function DepositPage() {
         setIsChecking(true);
         setPenaltyMessage(false);
 
-        const confirmed = await checkPaymentStatus();
+        const result = await checkPaymentStatus();
+        setIsChecking(false);
 
-        if (confirmed) {
+        if (result.success) {
             // Success! The API already handled the balance update
             setTimeout(() => {
                 router.push('/');
