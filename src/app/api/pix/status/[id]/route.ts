@@ -61,55 +61,47 @@ export async function GET(
         );
 
         const mycashData = await mycashRes.json();
-        console.log('[STATUS] MyCash RAW response:', JSON.stringify(mycashData));
+        console.log(`[STATUS] MyCash API Response for ${externalId}:`, JSON.stringify(mycashData));
 
-        if (!mycashRes.ok) {
-            console.error('[STATUS] MyCash API error:', mycashRes.status, mycashData);
+        // 4. Handle API Errors (including 200 OK with error field)
+        if (!mycashRes.ok || mycashData.error) {
+            console.error('[STATUS] MyCash API Error details:', mycashRes.status, mycashData.error);
             return NextResponse.json(
-                { error: mycashData.error || 'Erro ao consultar status' },
-                { status: mycashRes.status }
+                { error: mycashData.error || 'Erro ao consultar status no gateway' },
+                { status: mycashRes.status === 200 ? 400 : mycashRes.status }
             );
         }
 
-        // Normalize MyCash status — they may return different strings for withdrawals vs deposits
+        // 5. Normalize Status according to User Dictionary
         const rawStatus = (mycashData.status || '').toLowerCase().trim();
 
-        // Map known MyCash status variants to our internal statuses
-        const normalizeStatus = (status: string, txType: string): string => {
-            // Normalize status strings
-            const s = (status || '').toLowerCase().trim();
-
-            // COMPLETED: Transaction completed successfully
-            if (['completed', 'paid', 'done', 'approved', 'success', 'settled', 'confirmed', 'concluido', 'concluído', 'pago', 'sucesso'].includes(s)) {
+        const normalizeStatus = (status: string): string => {
+            // SUCCESS: paid (deposit) or completed (withdraw)
+            if (['paid', 'completed', 'approved', 'success', 'confirmed', 'settled'].includes(status)) {
                 return 'completed';
             }
 
-            // CANCELLED: Transaction failed or cancelled
-            if (['cancelled', 'canceled', 'failed', 'rejected', 'declined', 'error', 'expired', 'cancelado', 'falhou', 'erro'].includes(s)) {
+            // CANCELLED: failed or expired
+            if (['cancelled', 'canceled', 'failed', 'rejected', 'error', 'expired'].includes(status)) {
                 return 'cancelled';
             }
 
-            // PROCESSING: Withdrawal being sent to the bank (or busy)
-            if (['processing', 'busy', 'in_progress', 'sending', 'queued', 'processando'].includes(s)) {
+            // PROCESSING: strictly for withdrawals being sent
+            if (['processing', 'busy', 'sending', 'queued', 'in_progress'].includes(status)) {
                 return 'processing';
             }
 
-            // PENDING: Waiting for payment (Deposits)
-            if (['pending', 'waiting', 'awaiting', 'created', 'pendente', 'aguardando'].includes(s)) {
-                return 'pending';
-            }
-
-            return 'pending'; // Default fallback
+            return 'pending';
         };
 
-        const remoteStatus = normalizeStatus(rawStatus, localTx?.type || 'deposit');
-        console.log('[STATUS] Normalized status:', rawStatus, '->', remoteStatus);
+        const remoteStatus = normalizeStatus(rawStatus);
+        console.log(`[STATUS] Mapping: "${rawStatus}" -> "${remoteStatus}"`);
 
-        const isFinal = mycashData.is_final || remoteStatus === 'completed' || remoteStatus === 'cancelled' || remoteStatus === 'failed';
+        const isFinal = mycashData.is_final === true || remoteStatus === 'completed' || remoteStatus === 'cancelled';
 
-        // 4. Update local transaction status if changed
+        // 6. Update local transaction
         if (localTx && localTx.status !== remoteStatus) {
-            console.log('[STATUS] Updating local status from', localTx.status, 'to', remoteStatus);
+            console.log(`[STATUS] State Change: ${localTx.status} -> ${remoteStatus} (is_final: ${isFinal})`);
             const { error: updateError } = await supabase
                 .from('transactions')
                 .update({
@@ -118,9 +110,7 @@ export async function GET(
                 })
                 .eq('external_id', String(externalId));
 
-            if (updateError) {
-                console.error('[STATUS] Update TX error:', updateError.message);
-            }
+            if (updateError) console.error('[STATUS] DB Update Error:', updateError.message);
         }
 
         // 5. CREDIT BALANCE if deposit is completed and not yet credited
