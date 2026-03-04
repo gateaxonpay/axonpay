@@ -21,7 +21,8 @@ import {
     Search,
     Wallet,
     Trash2,
-    AlertTriangle
+    AlertTriangle,
+    Key
 } from 'lucide-react';
 import { cn, formatBRL } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -60,6 +61,12 @@ export default function AdminPage() {
     const [settingsStatus, setSettingsStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [showUserPassword, setShowUserPassword] = useState(false);
     const [isPremiumUser, setIsPremiumUser] = useState(false);
+    const [isPassModalOpen, setIsPassModalOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<{ id: string, email: string } | null>(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [isUpdatingPass, setIsUpdatingPass] = useState(false);
+    const [passModalError, setPassModalError] = useState<string | null>(null);
+
 
     const correctPin = '171033';
 
@@ -163,6 +170,36 @@ export default function AdminPage() {
             setIsLoading(false);
         }
     };
+
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedUser || !newPassword) return;
+
+        setIsUpdatingPass(true);
+        setPassModalError(null);
+
+        try {
+            const res = await fetch('/api/admin/users/update-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: selectedUser.id, newPassword })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert("SENHA ALTERADA COM SUCESSO!");
+                setIsPassModalOpen(false);
+                setNewPassword('');
+            } else {
+                setPassModalError(data.error);
+            }
+        } catch (err) {
+            setPassModalError("Erro de conexão ao alterar senha.");
+        } finally {
+            setIsUpdatingPass(false);
+        }
+    };
+
 
     const handleResetSystem = async () => {
         if (!confirm("⚠️ ATENÇÃO: Isso apagará TODAS as transações e zerará o saldo de TODOS os operadores. Esta ação é irreversível. CONFIRMAR RESET?")) {
@@ -559,14 +596,27 @@ export default function AdminPage() {
                                                     </div>
                                                 </td>
                                                 <td className="p-8 text-center">
-                                                    <button
-                                                        onClick={() => handleDeleteUser(user.id, user.email)}
-                                                        className="p-3 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-black rounded-xl border border-red-500/20 transition-all active:scale-95 group-hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-                                                        title="Excluir Operador e seus dados financeiros"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedUser({ id: user.id, email: user.email });
+                                                                setIsPassModalOpen(true);
+                                                            }}
+                                                            className="p-3 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-black rounded-xl border border-blue-500/20 transition-all active:scale-95 group-hover:shadow-[0_0_15px_rgba(59,130,246,0.2)]"
+                                                            title="Alterar Senha"
+                                                        >
+                                                            <Key size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteUser(user.id, user.email)}
+                                                            className="p-3 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-black rounded-xl border border-red-500/20 transition-all active:scale-95 group-hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                                                            title="Excluir Operador"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    </div>
                                                 </td>
+
                                             </tr>
                                         ))}
                                     </tbody>
@@ -817,6 +867,91 @@ export default function AdminPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Change Password Modal */}
+            <AnimatePresence>
+                {isPassModalOpen && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !isUpdatingPass && setIsPassModalOpen(false)}
+                            className="absolute inset-0 bg-black/95 backdrop-blur-md"
+                        />
+
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="glass-card w-full max-w-lg p-12 rounded-[60px] border-white/5 shadow-2xl relative z-10"
+                        >
+                            <div className="flex items-center gap-6 mb-12">
+                                <div className="w-20 h-20 rounded-[30px] bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-2xl shadow-blue-500/10">
+                                    <Key size={40} />
+                                </div>
+                                <div>
+                                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Alterar Senha</h2>
+                                    <p className="text-[11px] text-muted-foreground uppercase font-black tracking-[0.3em] mt-1 opacity-50">
+                                        Operador: {selectedUser?.email.split('@')[0]}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {passModalError && (
+                                <div className="mb-10 p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-4 text-red-500 font-black text-xs uppercase tracking-widest animate-shake">
+                                    <AlertTriangle size={20} />
+                                    <span>{passModalError}</span>
+                                </div>
+                            )}
+
+                            <form className="space-y-10" onSubmit={handleUpdatePassword}>
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 ml-6">Nova Chave de Acesso</label>
+                                    <div className="relative group">
+                                        <input
+                                            type={showUserPassword ? "text" : "password"}
+                                            required
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            disabled={isUpdatingPass}
+                                            placeholder="••••••••"
+                                            className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-[35px] px-12 pr-24 outline-none focus:border-primary/40 focus:bg-white/5 transition-all font-bold text-xl"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowUserPassword(!showUserPassword)}
+                                            className="absolute right-10 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-all"
+                                        >
+                                            {showUserPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+                                        </button>
+                                    </div>
+                                    <p className="text-[9px] text-muted-foreground/40 italic ml-6">* Mínimo de 6 caracteres.</p>
+                                </div>
+
+                                <div className="flex gap-6 pt-10">
+                                    <button
+                                        type="button"
+                                        disabled={isUpdatingPass}
+                                        onClick={() => setIsPassModalOpen(false)}
+                                        className="flex-1 h-24 bg-white/5 border border-white/10 rounded-[35px] font-black uppercase tracking-[0.3em] transition-all hover:bg-white/10 text-[10px]"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isUpdatingPass || !newPassword}
+                                        className="flex-[2] h-24 gold-gradient rounded-[35px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-6 hover:scale-[1.02] active:scale-95 transition-all text-base italic shadow-2xl shadow-yellow-900/30 disabled:opacity-50 disabled:grayscale"
+                                    >
+                                        {isUpdatingPass ? "Atualizando..." : "Confirmar Nova Senha"} <CheckCircle2 size={30} />
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
+
     );
 }

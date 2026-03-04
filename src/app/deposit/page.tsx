@@ -165,6 +165,9 @@ export default function DepositPage() {
             const data = await res.json();
 
             if (res.ok && data.status) {
+                // Save check time for persistence across page loads
+                localStorage.setItem(`axonpay_last_check_${transaction.external_id}`, Date.now().toString());
+
                 const isCompleted = data.status === 'completed';
                 const isCancelled = data.status === 'cancelled';
 
@@ -179,6 +182,8 @@ export default function DepositPage() {
 
                 return { success: isCompleted };
             } else if (data.error && data.error.toLowerCase().includes('rate limit')) {
+                // Also store rate limit time
+                localStorage.setItem(`axonpay_last_check_${transaction.external_id}`, Date.now().toString());
                 return { success: false, retryAfter: true };
             }
         } catch (e) {
@@ -233,27 +238,31 @@ export default function DepositPage() {
     const [nextCheckIn, setNextCheckIn] = useState(61);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (transaction && !transaction.is_final) {
-            // Check immediately on mount/creation
-            if (nextCheckIn === 61) {
+        if (!transaction || transaction.is_final) return;
+
+        const syncTimer = () => {
+            const key = `axonpay_last_check_${transaction.external_id}`;
+            const lastCheck = localStorage.getItem(key);
+            const now = Date.now();
+
+            if (lastCheck) {
+                const elapsed = Math.floor((now - parseInt(lastCheck)) / 1000);
+                if (elapsed < 61) {
+                    setNextCheckIn(61 - elapsed);
+                } else {
+                    setNextCheckIn(0);
+                    checkPaymentStatus();
+                }
+            } else {
+                setNextCheckIn(0);
                 checkPaymentStatus();
             }
-
-            interval = setInterval(() => {
-                setNextCheckIn(prev => {
-                    if (prev <= 1) {
-                        checkPaymentStatus();
-                        return 61;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
         };
-    }, [transaction, checkPaymentStatus, nextCheckIn]);
+
+        syncTimer(); // Initial run on mount/load
+        const interval = setInterval(syncTimer, 1000);
+        return () => clearInterval(interval);
+    }, [transaction?.external_id, transaction?.is_final, checkPaymentStatus]);
 
     // "Confirmar Pagamento" button handler
     const handleConfirmPayment = async () => {
